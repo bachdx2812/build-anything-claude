@@ -1,26 +1,28 @@
-# build-anything — UBS v8.1 Claude Code Skill
+# build-anything — UBS Claude Code Skill
 
 > **Mechanical evidence over agent narration.** When Devin/Comet/Codex/Claude says "done," prove it with cryptographically-witnessed gate verdicts — not a screenshot of a VM.
 
 This repository ships:
 
-1. **UBS v8.1 spec** — 17 Hard Laws + 28 Hard Gates that define what "done" means (`docs/`).
-2. **`/build-anything` Claude Code skill** — executable expression of the spec, 28 gate scripts + orchestrator + cryptographic witnessing (`skill/`).
+1. **UBS charter** — single canonical spec (`docs/ubs.md`): 18 Hard Laws + ~30 Hard Gates + Stage 0.1 INTENT DECLARATION that define what "done" means.
+2. **`/build-anything` Claude Code skill** — executable expression of the charter, gate scripts + orchestrator + cryptographic witnessing (`plugins/build-anything/`).
 3. **Two worked examples** — `toy-project/` (atom-on-existing) + `toy-bootstrap/` (greenfield), both with full manifest + cosign-signed evidence (`examples/`).
 
 ---
 
 ## Why this exists
 
-The "AI builds anything" stack (Devin / Comet / Kimi / Codex / Claude Code) ships features rapidly but produces no auditable evidence beyond the agent's own claim of success. UBS v8.1 fixes that with three discipline layers:
+The "AI builds anything" stack (Devin / Comet / Kimi / Codex / Claude Code) ships features rapidly but produces no auditable evidence beyond the agent's own claim of success. UBS fixes that with these discipline layers:
 
 | Layer | What it adds |
 |-------|--------------|
-| **17 Hard Laws** | Behavioural rules (LAW-04 no secret echoing, LAW-10 no auto-destructive, LAW-15 missing tool = N/A_PENDING_REVIEWER, LAW-17 cryptographic witness, LAW-F6 no vacuous PASS, …) |
-| **28 Hard Gates** | Mechanical checks that emit a *single integer score* + a JSON verdict — lint, type, coverage, mutation, perf, observability, secret scan, SQLi, arch-bridge, DB invariants, idempotency, concurrency, transaction atomicity, audit log, authorization, multi-tenant isolation, API contract, cache invariant, rate limit, IaC drift, CI seal, deployment runbook, SLO availability, scaling proof |
-| **Cryptographic seal** | After all gates emit verdicts, the orchestrator aggregates them into `manifest.json`, computes `SHA-256`, and signs with `cosign` (keyless OIDC in CI, key-based locally) — producing `manifest.cosign-bundle.json` that anyone can verify with `cosign verify-blob`. |
+| **18 Hard Laws** | Behavioural rules (LAW-04 no secret echoing, LAW-10 no auto-destructive, LAW-15 missing tool = N/A_PENDING_REVIEWER, LAW-17 cryptographic witness, LAW-CL-95 per-stage confidence contract, LAW-F6 no vacuous PASS, …) |
+| **Hard Gates** | Mechanical checks emitting `{verdict, confidence: 0-100, ambiguities[]}` — lint, type, coverage, mutation, perf, observability, secret scan, SQLi, arch-bridge, DB invariants, idempotency, concurrency, transaction atomicity, audit log, authorization, multi-tenant isolation, API contract, cache invariant, rate limit, IaC drift, CI seal, deployment runbook, SLO availability, scaling proof, product-feature coverage (PFC), UI/UX, E2E playwright |
+| **Stage 0.1 INTENT** | Mandatory first stage: agent self-scores intent confidence, declares product_type / primary_user / core_flows / success_criteria. Orchestrator refuses to run gates without `intent/verdict.json#next_action=READY`. |
+| **Meta-gates** | Regression spine for the skill itself: `no-vacuous-pass-test`, `real-atom-smoke-test`, `intent-preflight-test`. Picked up by `run-all-meta-gates.sh`. Catches "the skill stopped enforcing its own laws". |
+| **Cryptographic seal** | After all gates emit verdicts, orchestrator aggregates them into `manifest.json`, computes `SHA-256`, signs with `cosign` (keyless OIDC in CI, key-based locally) → `manifest.cosign-bundle.json` that anyone can verify with `cosign verify-blob`. |
 
-Result: a tamper-evident bundle that proves *this specific code* passed *these specific gates* at *this specific time* — independent of what the agent claims.
+Result: tamper-evident bundle proving *this specific code* passed *these specific gates* at *this specific time* — independent of what the agent claims.
 
 ---
 
@@ -41,11 +43,9 @@ After install, the skill activates with:
 /build-anything
 ```
 
-That's it — Claude Code clones the repo, reads `.claude-plugin/marketplace.json`, and wires `plugins/build-anything/SKILL.md` into your skill registry. Update later with `/plugin update build-anything@build-anything-claude`.
+Claude Code clones the repo, reads `.claude-plugin/marketplace.json`, wires `plugins/build-anything/SKILL.md` into your skill registry. Update later with `/plugin update build-anything@build-anything-claude`.
 
 ### Alternative — symlink install (manual)
-
-If you prefer not to use the marketplace command:
 
 ```bash
 git clone git@github.com:bachdx2812/build-anything-claude.git
@@ -53,22 +53,22 @@ cd build-anything-claude
 ./install.sh
 ```
 
-That symlinks `plugins/build-anything/` into `~/.claude/skills/build-anything/`.
+Symlinks `plugins/build-anything/` into `~/.claude/skills/build-anything/`.
 
 ### Required tools (host machine)
 
-The skill degrades gracefully when tools are missing (each gate emits `N/A_PENDING_REVIEWER` per LAW-15 — never a vacuous PASS). For full coverage, install:
+Skill degrades gracefully when tools are missing (each gate emits `N/A_PENDING_REVIEWER` per LAW-15 — never a vacuous PASS). For full coverage:
 
 ```bash
 # macOS (Homebrew)
-brew install jq cosign gitleaks semgrep k6
-npm install -g madge dependency-cruiser @stryker-mutator/core stryker-cli c8
+brew install jq cosign gitleaks semgrep k6 pandoc
+npm install -g madge dependency-cruiser @stryker-mutator/core stryker-cli c8 @playwright/test
 
 # Linux (apt + npm)
-sudo apt install -y jq
+sudo apt install -y jq pandoc
 curl -sSfL https://raw.githubusercontent.com/sigstore/cosign/main/install.sh | sh
 # (semgrep, k6, gitleaks via their own installers)
-npm install -g madge dependency-cruiser @stryker-mutator/core stryker-cli c8
+npm install -g madge dependency-cruiser @stryker-mutator/core stryker-cli c8 @playwright/test
 ```
 
 ---
@@ -89,20 +89,13 @@ git pull --ff-only
 ./install.sh    # idempotent; re-syncs symlink
 ```
 
-To pin a version:
-
-```bash
-git checkout v8.1.0   # or whatever tag
-./install.sh
-```
-
 ---
 
 ## Usage
 
 ### Mode 1: atom-on-existing (default)
 
-Inside an existing repo. The skill scopes its checks to your current diff (+ 1-hop dependents via `madge`/`importlab`/`go list`/`cargo tree`).
+Inside an existing repo. Skill scopes its checks to your current diff (+ 1-hop dependents via `madge`/`importlab`/`go list`/`cargo tree`).
 
 ```bash
 cd your-existing-repo
@@ -125,17 +118,23 @@ See `examples/toy-bootstrap/.build-anything.json` for a complete example.
 You can also invoke the gate orchestrator directly without Claude:
 
 ```bash
+# Stage 0.1 — declare intent first
+bash ~/.claude/skills/build-anything/scripts/intent/declare-intent.sh \
+  --atom-dir atom/MY-ATOM-001
+
+# All gates
 bash ~/.claude/skills/build-anything/scripts/orchestrator/run-all-gates.sh \
   --atom-dir atom/MY-ATOM-001 \
   --project-root .
 ```
 
 Output:
-- `atom/MY-ATOM-001/manifest.json` — aggregated verdicts (28 gates)
+- `atom/MY-ATOM-001/intent/verdict.json` — declared intent + confidence
+- `atom/MY-ATOM-001/manifest.json` — aggregated verdicts (all gates)
 - `atom/MY-ATOM-001/manifest.sha256` — SHA-256 of manifest
 - `atom/MY-ATOM-001/manifest.cosign-bundle.json` — cosign signature
 - `atom/MY-ATOM-001/witness.json` — witness metadata
-- `atom/MY-ATOM-001/gate-{mechanical,security,backend,cloud}/*.json` — per-gate verdicts
+- `atom/MY-ATOM-001/gate-{mechanical,security,backend,cloud,ui-ux}/*.json` — per-gate verdicts
 
 To verify a manifest someone else produced:
 
@@ -147,6 +146,17 @@ cosign verify-blob \
 # → "Verified OK"
 ```
 
+### Skill self-regression check
+
+Before relying on the skill in production, run the meta-gate suite:
+
+```bash
+bash ~/.claude/skills/build-anything/scripts/meta/run-all-meta-gates.sh
+# exit 0 = no regression
+# exit 1 = LAW-F6 or LAW-CL-95 or GATE-INTENT broken
+# exit 2 = a meta-gate itself broke (harness rot)
+```
+
 ---
 
 ## Worked example — `examples/toy-project/`
@@ -155,11 +165,11 @@ A toy Node.js Express orders API with **13 seeded bugs** (see `examples/seeded-b
 
 | Bug | Caught by |
 |-----|-----------|
-| BUG-01 missing input validation | `mech-mutation` (Stryker 2.59% kill rate FAIL) |
-| BUG-02 dead code branch | `mech-coverage` (c8 36.14% FAIL) |
+| BUG-01 missing input validation | `mech-mutation` (Stryker low kill rate FAIL) |
+| BUG-02 dead code branch | `mech-coverage` (c8 below threshold FAIL) |
 | BUG-03 hardcoded OpenAI key | `sec-secret` (gitleaks `openai-key` rule HIT) |
 | BUG-04 SQL injection | `sec-sqli` (semgrep + grep complement) |
-| BUG-05 N+1 query latency | `mech-load` (k6 p95=109ms vs threshold 50ms FAIL) |
+| BUG-05 N+1 query latency | `mech-load` (k6 p95 over threshold FAIL) |
 | BUG-06 missing tenant isolation | `be-tenant` |
 | BUG-07 missing idempotency key | `be-idempotency` |
 | BUG-08 cross-layer FE→DB import | `sec-arch` (dependency-cruiser) |
@@ -170,6 +180,10 @@ A toy Node.js Express orders API with **13 seeded bugs** (see `examples/seeded-b
 | BUG-13 OpenAPI schema drift | `be-contract` |
 
 All 13 caught **by real tools**, not stubs. The `manifest.cosign-bundle.json` in that directory is a real cosign-signed bundle — verifiable with the included `cosign.pub`.
+
+### Empty-atom regression demo
+
+For a proof that v8.3 cannot be tricked into claiming success on an empty atom, see `plans/reports/youtube-build-demo-260526-2151-from-scratch.md`. Running the orchestrator against an atom whose only input is the literal sentence "build cho tôi youtube" produces 0 PASS / 1 FAIL / 29 N/A_PENDING_REVIEWER — exactly what LAW-F6 mandates.
 
 ---
 
@@ -182,23 +196,26 @@ build-anything-claude/
 ├── install.sh                         ← fallback symlink installer
 ├── .claude-plugin/
 │   └── marketplace.json               ← Claude Code plugin manifest
-├── docs/                              ← UBS v8.1 spec (the philosophy)
-│   ├── ubs-v8-1.md                    ← core spec (17 Laws + 28 Gates)
-│   ├── ubs-v8-1-pitch.md              ← exec summary
-│   ├── ubs-v8-1-technical-hardening.md
-│   └── ubs-v8-1-production-reality.md
+├── docs/                              ← UBS charter (single source of truth)
+│   ├── ubs.md                         ← canonical spec (18 Laws + all Gates + 17-stage pipeline)
+│   └── ubs.docx                       ← boss-handoff format
+├── plans/
+│   └── reports/                       ← journals, demos, audits
 ├── plugins/
-│   └── build-anything/                ← the executable skill
+│   └── build-anything/                ← executable skill
 │       ├── SKILL.md
 │       ├── references/                ← knowledge files loaded on demand
-│       ├── scripts/                   ← 28 gate scripts + orchestrator + witness
-│       │   ├── orchestrator/run-all-gates.sh
-│       │   ├── orchestrator/witness-sign.sh
-│       │   ├── mechanical/            ← lint, type, coverage, mutation, bundle, lighthouse, load, obs, property
+│       ├── scripts/                   ← gate scripts + orchestrator + witness + meta
+│       │   ├── intent/                ← Stage 0.1 declare-intent.sh (LAW-CL-95)
+│       │   ├── orchestrator/          ← run-all-gates.sh + witness-sign.sh
+│       │   ├── meta/                  ← skill self-regression spine
+│       │   ├── mechanical/            ← lint, type, coverage, mutation, bundle, lighthouse, load, obs, property, e2e-playwright
 │       │   ├── security/              ← secret-scan, sql-injection, architecture-bridge
 │       │   ├── backend/               ← invariant, idempotency, concurrency, tx, bgjob, audit, authz, tenant, contract, cache, ratelimit
-│       │   └── cloud/                 ← iac-drift, ci-seal, deploy-runbook, slo, scaling
-│       ├── sub-skills/                ← composable skill steps (spec, build, verify, review, evidence, …)
+│       │   ├── cloud/                 ← iac-drift, ci-seal, deploy-runbook, slo, scaling
+│       │   ├── gate-ui-ux/            ← UI/UX product-discovery gate
+│       │   └── spec/                  ← product-feature-coverage (PFC) catalog
+│       ├── sub-skills/                ← composable skill steps (intent, spec, build, verify, review, evidence, gate-*)
 │       └── templates/                 ← config + spec + tracker templates + .gitleaks.toml
 └── examples/
     ├── seeded-bugs.md
@@ -208,11 +225,11 @@ build-anything-claude/
 
 ---
 
-## Philosophy — what the document does well, what it's missing
+## Philosophy — what the charter does, what the skill enforces
 
-(For a programmer's audit of why "the doc + Devin/Comet/Kimi" is not enough on its own, and what this repo adds, see `docs/ubs-v8-1-production-reality.md`.)
+**TL;DR**: `docs/ubs.md` is the *philosophy*; this repo is the *enforcement layer*. The charter tells you what "done" should mean. The skill makes it impossible to *claim* done without producing the evidence — and the meta-gate spine makes it impossible for the skill to *quietly lose* that ability.
 
-**TL;DR**: the document is a *philosophy*; this repo is the *enforcement layer*. The doc tells you what "done" should mean. The skill makes it impossible to *claim* done without producing the evidence.
+For full detail (laws, gates, stages, confidence-loop, manifest schema, witness classes, operating modes, cost ladder), read `docs/ubs.md` — it is the only document required to operate the system.
 
 ---
 
