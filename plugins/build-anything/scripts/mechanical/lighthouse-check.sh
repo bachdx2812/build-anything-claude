@@ -24,6 +24,7 @@ require_cmd lighthouse "install: npm i -g lighthouse"
 
 PERF_MEDIAN=100; A11Y_MEDIAN=100
 WORST_URL=""
+URLS_TESTED=0
 while read -r URL; do
   [[ -z "$URL" ]] && continue
   PERF_RUNS=(); A11Y_RUNS=()
@@ -38,14 +39,17 @@ while read -r URL; do
   log_step lighthouse "url=$URL perf=$PERF a11y=$A11Y"
   if (( $(awk -v p="$PERF" -v m="$PERF_MEDIAN" 'BEGIN{print (p<m)?1:0}') )); then PERF_MEDIAN="$PERF"; WORST_URL="$URL"; fi
   if (( $(awk -v a="$A11Y" -v m="$A11Y_MEDIAN" 'BEGIN{print (a<m)?1:0}') )); then A11Y_MEDIAN="$A11Y"; fi
+  URLS_TESTED=$((URLS_TESTED + 1))
 done <<< "$URLS_RAW"
 
 PASSED_PERF=$(awk -v s="$PERF_MEDIAN" -v t="$THRESH_PERF" 'BEGIN{print (s>=t)?"true":"false"}')
 PASSED_A11Y=$(awk -v s="$A11Y_MEDIAN" -v t="$THRESH_A11Y" 'BEGIN{print (s>=t)?"true":"false"}')
 PASSED="false"; [[ "$PASSED_PERF" == "true" && "$PASSED_A11Y" == "true" ]] && PASSED="true"
 
+# v8.3 — urls_tested is the lighthouse equivalent of scope_files: prevents
+# "perf=92" headline from masking the fact that only 1 of 5 declared URLs was reached.
 emit_json "GATE-14-lighthouse" "$PERF_MEDIAN" "$THRESH_PERF" "$PASSED" "$OUT" \
-  "{\"a11y\":$A11Y_MEDIAN,\"a11y_threshold\":$THRESH_A11Y,\"a11y_passed\":$PASSED_A11Y,\"worst_url\":\"$WORST_URL\"}"
+  "{\"a11y\":$A11Y_MEDIAN,\"a11y_threshold\":$THRESH_A11Y,\"a11y_passed\":$PASSED_A11Y,\"worst_url\":\"$WORST_URL\",\"urls_tested\":$URLS_TESTED}"
 
 if [[ "$PASSED" == "true" ]]; then
   log_step lighthouse "PASS perf=$PERF_MEDIAN a11y=$A11Y_MEDIAN"

@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
 atom_dir_from_args "$@"
-require_test_db
+require_test_db "GATE-18a" "db-invariant.json"
 log_step db-invariant "starting against DB_DRIVER=$DB_DRIVER"
 
 INVARIANTS_JSON=$(cfg "backend.invariants" "[]")

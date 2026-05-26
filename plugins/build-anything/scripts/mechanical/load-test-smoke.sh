@@ -65,8 +65,10 @@ ERR_RATE=$(jq -r '.metrics.http_req_failed.rate // 0' "$SUMMARY")
 P95_INT=$(printf "%.0f" "$P95")
 PASSED=$(awk -v s="$P95_INT" -v t="$THRESH_MS" 'BEGIN{print (s<=t)?"true":"false"}')
 
+# v8.3 — endpoints_tested is the load equivalent of scope_files: prevents
+# "p95=180ms" headline from masking that only 1 of 8 declared endpoints was hit.
 emit_json "GATE-14-load" "$P95_INT" "$THRESH_MS" "$PASSED" "$OUT" \
-  "{\"p50_ms\":$(printf '%.0f' "$P50"),\"err_rate\":$ERR_RATE,\"endpoints\":$EP_COUNT}"
+  "{\"p50_ms\":$(printf '%.0f' "$P50"),\"err_rate\":$ERR_RATE,\"endpoints_tested\":$EP_COUNT}"
 
 if [[ "$PASSED" == "true" ]]; then
   log_step load "PASS p95=${P95_INT}ms (≤${THRESH_MS}ms)"

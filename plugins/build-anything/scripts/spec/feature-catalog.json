@@ -1,0 +1,100 @@
+{
+  "youtube-clone": {
+    "keywords": ["youtube clone", "video sharing", "video platform", "vimeo clone", "video hosting"],
+    "must_have": [
+      { "name": "video upload",       "synonyms": ["upload video", "video file upload", "post video", "publish video"] },
+      { "name": "video playback",     "synonyms": ["play video", "watch video", "video player", "stream video", "<video>", "videojs", "hls", "dash"] },
+      { "name": "video listing",      "synonyms": ["list videos", "lists videos", "listing videos", "video list", "video feed", "browse videos", "video catalog"] },
+      { "name": "user accounts",      "synonyms": ["register", "signup", "login", "authentication", "auth", "jwt"] },
+      { "name": "comments",           "synonyms": ["comment", "reply", "thread"] },
+      { "name": "video metadata",     "synonyms": ["title", "description", "thumbnail", "tags"] }
+    ]
+  },
+  "twitter-clone": {
+    "keywords": ["twitter clone", "x clone", "microblog", "tweet platform", "social timeline"],
+    "must_have": [
+      { "name": "post tweet",         "synonyms": ["create post", "tweet", "publish status", "compose"] },
+      { "name": "timeline feed",      "synonyms": ["feed", "timeline", "home feed", "following feed"] },
+      { "name": "user accounts",      "synonyms": ["register", "signup", "login", "auth"] },
+      { "name": "follow user",        "synonyms": ["follow", "unfollow", "subscriber"] },
+      { "name": "like / heart",       "synonyms": ["like", "heart", "favorite", "react"] },
+      { "name": "reply / thread",     "synonyms": ["reply", "thread", "respond"] }
+    ]
+  },
+  "instagram-clone": {
+    "keywords": ["instagram clone", "photo sharing", "image feed app"],
+    "must_have": [
+      { "name": "image upload",       "synonyms": ["upload photo", "upload image", "post photo"] },
+      { "name": "image feed",         "synonyms": ["feed", "explore", "timeline"] },
+      { "name": "user accounts",      "synonyms": ["register", "signup", "login"] },
+      { "name": "follow user",        "synonyms": ["follow", "unfollow"] },
+      { "name": "like / comment",     "synonyms": ["like", "heart", "comment"] },
+      { "name": "user profile",       "synonyms": ["profile page", "avatar", "bio"] }
+    ]
+  },
+  "amazon-clone": {
+    "keywords": ["amazon clone", "ecommerce platform", "shop clone", "marketplace"],
+    "must_have": [
+      { "name": "product catalog",    "synonyms": ["product listing", "browse products", "search products"] },
+      { "name": "product detail",     "synonyms": ["product page", "item page"] },
+      { "name": "cart",               "synonyms": ["shopping cart", "add to cart", "basket"] },
+      { "name": "checkout",           "synonyms": ["checkout", "place order"] },
+      { "name": "payment",            "synonyms": ["payment", "stripe", "paypal", "billing"] },
+      { "name": "user accounts",      "synonyms": ["register", "signup", "login", "account"] },
+      { "name": "order history",      "synonyms": ["order history", "my orders", "past orders"] }
+    ]
+  },
+  "uber-clone": {
+    "keywords": ["uber clone", "ride sharing", "ride hailing"],
+    "must_have": [
+      { "name": "rider account",      "synonyms": ["rider signup", "passenger account"] },
+      { "name": "driver account",     "synonyms": ["driver signup", "driver onboarding"] },
+      { "name": "request ride",       "synonyms": ["request ride", "book ride", "hail"] },
+      { "name": "match driver",       "synonyms": ["match", "assign driver", "dispatch"] },
+      { "name": "geolocation",        "synonyms": ["geolocation", "gps", "map", "lat", "lng", "location"] },
+      { "name": "payment",            "synonyms": ["payment", "fare", "stripe"] },
+      { "name": "rating",             "synonyms": ["rating", "review", "star"] }
+    ]
+  },
+  "todo-app": {
+    "keywords": ["todo app", "todo list", "task manager", "task app"],
+    "must_have": [
+      { "name": "create task",        "synonyms": ["add task", "create todo", "new task"] },
+      { "name": "list tasks",         "synonyms": ["list tasks", "view tasks", "task list"] },
+      { "name": "mark complete",      "synonyms": ["complete task", "mark done", "check off"] },
+      { "name": "delete task",        "synonyms": ["delete task", "remove task"] }
+    ]
+  },
+  "blog-platform": {
+    "keywords": ["blog platform", "blog cms", "medium clone", "publishing platform"],
+    "must_have": [
+      { "name": "create post",        "synonyms": ["write post", "publish article", "create article"] },
+      { "name": "edit post",          "synonyms": ["edit post", "update article"] },
+      { "name": "list posts",         "synonyms": ["browse posts", "feed", "list articles"] },
+      { "name": "read post",          "synonyms": ["read article", "post detail"] },
+      { "name": "user accounts",      "synonyms": ["author account", "register", "login"] },
+      { "name": "comments",           "synonyms": ["comment", "discussion"] }
+    ]
+  },
+  "chat-app": {
+    "keywords": ["chat app", "messenger clone", "slack clone", "discord clone", "messaging platform"],
+    "must_have": [
+      { "name": "user accounts",      "synonyms": ["register", "login", "auth"] },
+      { "name": "real-time messaging","synonyms": ["websocket", "socket.io", "real-time", "send message"] },
+      { "name": "channels / DMs",     "synonyms": ["channel", "room", "direct message", "dm"] },
+      { "name": "message history",    "synonyms": ["message history", "conversation log", "read history"] },
+      { "name": "presence",           "synonyms": ["online status", "presence", "typing indicator"] }
+    ]
+  },
+  "airbnb-clone": {
+    "keywords": ["airbnb clone", "vrbo clone", "rental marketplace", "homestay platform"],
+    "must_have": [
+      { "name": "listing creation",   "synonyms": ["create listing", "host property", "add listing"] },
+      { "name": "search listings",    "synonyms": ["search", "browse listings", "filter"] },
+      { "name": "booking",            "synonyms": ["book", "reserve", "reservation"] },
+      { "name": "payment",            "synonyms": ["payment", "stripe", "checkout"] },
+      { "name": "review",             "synonyms": ["review", "rating", "feedback"] },
+      { "name": "user accounts",      "synonyms": ["host account", "guest account", "register"] }
+    ]
+  }
+}

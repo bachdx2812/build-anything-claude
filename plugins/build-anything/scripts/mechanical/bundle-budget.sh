@@ -55,8 +55,11 @@ fi
 DELTA=$(awk -v c="$CURRENT_KB" -v b="$BASELINE_KB" 'BEGIN{printf "%.2f", c-b}')
 PASSED=$(awk -v d="$DELTA" -v t="$THRESH_KB" 'BEGIN{print (d<=t)?"true":"false"}')
 
+read_lines SCOPE_LIST < <(changed_files | grep -E '\.(ts|tsx|js|jsx|css|scss)$' | grep -v -E '(test|spec)' || true)
+SCOPE_FILES=${#SCOPE_LIST[@]}
+
 emit_json "GATE-14-bundle" "$DELTA" "$THRESH_KB" "$PASSED" "$OUT" \
-  "{\"current_kb\":$CURRENT_KB,\"baseline_kb\":$BASELINE_KB,\"dist_dir\":\"$DIST_DIR\"}"
+  "{\"current_kb\":$CURRENT_KB,\"baseline_kb\":$BASELINE_KB,\"dist_dir\":\"$DIST_DIR\",\"scope_files\":$SCOPE_FILES}"
 
 if [[ "$PASSED" == "true" ]]; then
   log_step bundle "PASS delta=${DELTA}KB (≤${THRESH_KB}KB) current=${CURRENT_KB}KB baseline=${BASELINE_KB}KB"

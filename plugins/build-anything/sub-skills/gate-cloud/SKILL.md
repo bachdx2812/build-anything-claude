@@ -67,6 +67,6 @@ Always — unless the atom is pure library code (no deploy target). Frontend-onl
 
 ## References
 
-- Production-reality image: `docs/ubs-v8-1-image-mapping.md`
+- Canonical doc (production-reality section): `docs/ubs.md` Section B.3 + C
 - Scripts: `scripts/cloud/*.sh`
 - LAW-10 NO AUTO-DESTRUCTIVE: chaos_cmd MUST run on staging or ephemeral env only

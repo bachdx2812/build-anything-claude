@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
 atom_dir_from_args "$@"
-require_test_db
+require_test_db "GATE-18d" "background-job.json"
 log_step bg-job "starting"
 
 SCENARIOS_JSON=$(cfg "backend.background_jobs.scenarios" "[]")

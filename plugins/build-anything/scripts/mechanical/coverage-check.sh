@@ -70,13 +70,18 @@ PASSED_LINE=$(awk -v s="$LINE" -v t="$THRESH_LINE" 'BEGIN{print (s>=t)?"true":"f
 PASSED_BRANCH=$(awk -v s="$BRANCH" -v t="$THRESH_BRANCH" 'BEGIN{print (s>=t)?"true":"false"}')
 PASSED="false"; [[ "$PASSED_LINE" == "true" && "$PASSED_BRANCH" == "true" ]] && PASSED="true"
 
+# v8.3 — emit scope_files so headline is interpretable.
+# "Coverage 81%" without scope context is misleading (could be 81% on 2 of 8 files).
+read_lines SCOPE_LIST < <(changed_files | grep -E '\.(ts|tsx|js|jsx|py|go|rs)$' | grep -v -E '(test|spec)' || true)
+SCOPE_FILES=${#SCOPE_LIST[@]}
+
 emit_json "GATE-10-line" "$LINE" "$THRESH_LINE" "$PASSED" "$OUT_LINE" \
-  "{\"branch_pct\": $BRANCH, \"branch_threshold\": $THRESH_BRANCH, \"branch_passed\": $PASSED_BRANCH, \"stack\": \"$STACK\"}"
+  "{\"branch_pct\": $BRANCH, \"branch_threshold\": $THRESH_BRANCH, \"branch_passed\": $PASSED_BRANCH, \"stack\": \"$STACK\", \"scope_files\": $SCOPE_FILES, \"total_lines_instrumented\": ${TOTAL_LINES:-null}}"
 
 if [[ "$PASSED" == "true" ]]; then
-  log_step coverage "PASS line=${LINE}% branch=${BRANCH}%"
+  log_step coverage "PASS line=${LINE}% branch=${BRANCH}% scope_files=$SCOPE_FILES"
   exit 0
 else
-  log_step coverage "FAIL line=${LINE}% (≥${THRESH_LINE}) branch=${BRANCH}% (≥${THRESH_BRANCH})"
+  log_step coverage "FAIL line=${LINE}% (≥${THRESH_LINE}) branch=${BRANCH}% (≥${THRESH_BRANCH}) scope_files=$SCOPE_FILES"
   exit 1
 fi

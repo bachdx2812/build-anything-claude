@@ -10,7 +10,7 @@ set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
 atom_dir_from_args "$@"
-require_test_db
+require_test_db "GATE-18e" "audit-log.json"
 log_step audit-log "starting"
 
 AUDIT_TABLE=$(cfg "backend.audit_table" "audit_log")

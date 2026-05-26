@@ -7,14 +7,14 @@ set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
 atom_dir_from_args "$@"
-require_test_db
+require_test_db "GATE-18b" "concurrency.json"
 log_step concurrency "starting"
 
 ENDPOINTS_JSON=$(cfg "backend.concurrency.endpoints" "[]")
 PARALLELISM=$(cfg "backend.concurrency.parallel" "10")
 if [[ "$ENDPOINTS_JSON" == "[]" || "$ENDPOINTS_JSON" == "null" ]]; then
-  log_step concurrency "no endpoints configured — vacuous PASS"
-  emit_evidence "GATE-18b" true "concurrency.json" '{"endpoints_tested":0}'
+  log_step concurrency "no endpoints configured — N/A_PENDING_REVIEWER (F6: no vacuous PASS)"
+  emit_na_pending "GATE-18b" "concurrency.json" "no concurrency endpoints configured; reviewer must add backend.concurrency.endpoints OR confirm atom has no concurrent-write surface"
   exit 0
 fi
 

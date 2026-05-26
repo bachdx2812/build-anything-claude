@@ -45,7 +45,7 @@ for f in "${SCOPE[@]}"; do
 done
 
 PASSED=$([ "$MISSING" -eq 0 ] && echo true || echo false)
-emit_json "GATE-15" "$MISSING" 0 "$PASSED" "$OUT" "{\"missing_files\":$DETAILS,\"scope\":${#SCOPE[@]}}"
+emit_json "GATE-15" "$MISSING" 0 "$PASSED" "$OUT" "{\"missing_files\":$DETAILS,\"scope_files\":${#SCOPE[@]}}"
 
 if [[ "$PASSED" == "true" ]]; then
   log_step observability "PASS all $((${#SCOPE[@]})) files instrumented"

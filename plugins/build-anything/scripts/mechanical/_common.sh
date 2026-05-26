@@ -27,10 +27,14 @@ detect_stack() {
 }
 
 # ── JSON output ────────────────────────────────────────────────────
-# emit_json <gate-id> <score> <threshold> <passed:true|false> <out-file> [extra-json]
+# emit_json <gate-id> <score> <threshold> <passed:true|false> <out-file> [extra-json] [confidence] [ambiguities-json-array]
+# LAW-CL-95 — confidence default 100 for mechanical gates (numeric proof in hand).
+# Callers SHOULD override when the score is heuristic / partial-evidence (e.g. lint-style ratio).
 emit_json() {
   local gate="$1" score="$2" thresh="$3" passed="$4" out="$5"
   local extra="${6:-}"
+  local confidence="${7:-100}"
+  local ambiguities="${8:-[]}"
   [[ -z "$extra" ]] && extra='{}'
   mkdir -p "$(dirname "$out")"
   cat > "$out" <<JSON
@@ -40,6 +44,8 @@ emit_json() {
   "threshold": $thresh,
   "passed": $passed,
   "delta": $(awk -v s="$score" -v t="$thresh" 'BEGIN{printf "%.4f", s-t}'),
+  "confidence": $confidence,
+  "ambiguities": $ambiguities,
   "extra": $extra,
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
@@ -126,6 +132,10 @@ read_lines() {
 # emit_na_pending <gate-id> <out-file> <reason>
 emit_na_pending() {
   local gate="$1" out="$2" reason="${3:-no scope}"
+  # LAW-CL-95 — N/A means we lack evidence to render a verdict; confidence=0,
+  # the reason becomes the (single) declared ambiguity that the reviewer must resolve.
+  local reason_json
+  reason_json=$(printf '%s' "$reason" | jq -Rs . 2>/dev/null || printf '"%s"' "$reason")
   mkdir -p "$(dirname "$out")"
   cat > "$out" <<JSON
 {
@@ -135,11 +145,43 @@ emit_na_pending() {
   "passed": null,
   "verdict": "N/A_PENDING_REVIEWER",
   "reason": "$reason",
+  "confidence": 0,
+  "ambiguities": [$reason_json],
   "review_required": true,
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 JSON
   echo "NA"
+}
+
+# v8.3 — silent gate drop guard. When a gate script crashes without writing its
+# JSON output, the orchestrator MUST synthesize an ERROR verdict so the gate
+# does not silently disappear from the manifest (which would let a crashed gate
+# masquerade as a never-registered gate — same failure class as vacuous PASS).
+# emit_error <gate-id> <out-file> <reason> [<exit-code>]
+emit_error() {
+  local gate="$1" out="$2" reason="${3:-script crashed without writing JSON}" code="${4:-1}"
+  # LAW-CL-95 — ERROR is the "we tried to render a verdict but the script crashed"
+  # state. Confidence is 0; the crash reason is the declared ambiguity.
+  local reason_json
+  reason_json=$(printf '%s' "$reason" | jq -Rs . 2>/dev/null || printf '"%s"' "$reason")
+  mkdir -p "$(dirname "$out")"
+  cat > "$out" <<JSON
+{
+  "gate": "$gate",
+  "score": null,
+  "threshold": null,
+  "passed": false,
+  "verdict": "ERROR",
+  "reason": "$reason",
+  "exit_code": $code,
+  "confidence": 0,
+  "ambiguities": [$reason_json],
+  "review_required": true,
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+JSON
+  echo "ERROR"
 }
 
 # ── threshold reader ──────────────────────────────────────────────

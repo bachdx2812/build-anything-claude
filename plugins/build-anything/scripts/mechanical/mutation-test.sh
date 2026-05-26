@@ -69,7 +69,22 @@ case "$STACK" in
       REL_SCOPE+=("${p#$STACK_DIR/}")
     done
     STRYKER_OUT_JSON="$RUN_ROOT/reports/mutation/.stryker-tmp.json"
-    ( cd "$RUN_ROOT" && $STRYKER_BIN run --mutate "${REL_SCOPE[@]}" ) >/dev/null 2>&1 || true
+    # If stryker.conf.{js,json,cjs,mjs} declares its own `mutate`, honor that and
+    # skip CLI --mutate (CLI overrides config and can include unmutatable files like
+    # browser-only frontend modules, which causes stryker to bail before writing JSON).
+    HAS_CONFIG_MUTATE="false"
+    for cfg in stryker.conf.json stryker.conf.js stryker.conf.cjs stryker.conf.mjs; do
+      if [[ -f "$RUN_ROOT/$cfg" ]] && grep -qE '"mutate"|mutate:' "$RUN_ROOT/$cfg" 2>/dev/null; then
+        HAS_CONFIG_MUTATE="true"
+        break
+      fi
+    done
+    if [[ "$HAS_CONFIG_MUTATE" == "true" ]]; then
+      log_step mutation "honoring stryker config mutate list (CLI override disabled)"
+      ( cd "$RUN_ROOT" && $STRYKER_BIN run ) >/dev/null 2>&1 || true
+    else
+      ( cd "$RUN_ROOT" && $STRYKER_BIN run --mutate "${REL_SCOPE[@]}" ) >/dev/null 2>&1 || true
+    fi
     if [[ ! -f "$STRYKER_OUT_JSON" ]]; then
       log_step mutation "stryker output missing — N/A_PENDING_REVIEWER"
       emit_na_pending "GATE-11" "$OUT" "stryker did not produce JSON output at $STRYKER_OUT_JSON; reviewer must investigate (check stryker.conf.json#jsonReporter.fileName)"

@@ -11,7 +11,7 @@ set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
 atom_dir_from_args "$@"
-require_test_db
+require_test_db "GATE-21" "multi-tenant-isolation.json"
 log_step multi-tenant "starting"
 
 TENANT_A_ID=$(cfg "backend.tenant_fixtures.tenant_a.id" "")

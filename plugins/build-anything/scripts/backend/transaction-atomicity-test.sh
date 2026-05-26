@@ -8,13 +8,13 @@ set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
 atom_dir_from_args "$@"
-require_test_db
+require_test_db "GATE-18c" "transaction-atomicity.json"
 log_step tx-atomicity "starting"
 
 SCENARIOS_JSON=$(cfg "backend.tx_atomicity.scenarios" "[]")
 if [[ "$SCENARIOS_JSON" == "[]" || "$SCENARIOS_JSON" == "null" ]]; then
-  log_step tx-atomicity "no scenarios configured — vacuous PASS"
-  emit_evidence "GATE-18c" true "transaction-atomicity.json" '{"scenarios_run":0}'
+  log_step tx-atomicity "no scenarios configured — N/A_PENDING_REVIEWER (F6: no vacuous PASS)"
+  emit_na_pending "GATE-18c" "transaction-atomicity.json" "no transaction atomicity scenarios configured; reviewer must add backend.tx_atomicity.scenarios OR confirm atom has no multi-step transactional surface"
   exit 0
 fi
 

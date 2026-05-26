@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
 atom_dir_from_args "$@"
-require_test_db
+require_test_db "GATE-20" "idempotency.json"
 log_step idempotency "starting"
 
 ENDPOINTS_JSON=$(cfg "backend.idempotency.endpoints" "[]")
