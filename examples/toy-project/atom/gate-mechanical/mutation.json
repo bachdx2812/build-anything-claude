@@ -1,0 +1,10 @@
+{
+  "gate": "GATE-11",
+  "score": null,
+  "threshold": null,
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "stryker not installed at /Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project; reviewer must install (npm i -D @stryker-mutator/core) OR justify",
+  "review_required": true,
+  "timestamp": "2026-05-26T08:14:01Z"
+}

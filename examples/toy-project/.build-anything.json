@@ -1,0 +1,104 @@
+{
+  "atom_dir": "./atom",
+  "scope": {
+    "mode": "atom_on_existing",
+    "base_ref": "HEAD",
+    "paths": [
+      "backend/server.js",
+      "backend/db.js",
+      "backend/routes/orders.js",
+      "backend/routes/auth.js",
+      "frontend/app.js"
+    ],
+    "bootstrap_glob": ["backend", "frontend"]
+  },
+  "thresholds": {
+    "coverage_line_pct": 80,
+    "coverage_branch_pct": 70,
+    "mutation_score_pct": 70,
+    "bundle_kb_max": 50,
+    "lighthouse_perf_min": 80,
+    "lighthouse_a11y_min": 95,
+    "p95_ms_max": 250
+  },
+  "backend": {
+    "db": { "url_env": "TEST_DB_URL", "driver": "sqlite" },
+    "api_base_url": "http://localhost:3000",
+    "openapi_path": "openapi.yaml",
+    "audit_table": "audit_log",
+    "tenant_fixtures": {
+      "tenant_a": { "id": "a", "user_jwt_env": "TEST_JWT_A" },
+      "tenant_b": { "id": "b", "user_jwt_env": "TEST_JWT_B" }
+    },
+    "invariants": [
+      { "name": "orders_sum_match", "query_file": "schema/invariants.sql:orders_sum_match", "expect_zero_rows": true },
+      { "name": "orphan_items", "query_file": "schema/invariants.sql:orphan_items", "expect_zero_rows": true },
+      { "name": "tenant_id_present", "query_file": "schema/invariants.sql:tenant_id_present", "expect_zero_rows": true }
+    ],
+    "idempotency": {
+      "endpoints": [
+        { "method": "POST", "path": "/api/orders", "resource_table": "orders",
+          "body": "{\"items\":[{\"amount\":10}]}", "jwt_fixture": "tenant_a" }
+      ]
+    },
+    "concurrency": {
+      "parallel": 10,
+      "endpoints": [
+        { "method": "POST", "path": "/api/orders", "resource_table": "orders",
+          "unique_key": "idempotency_key", "expected_row_delta": 1 }
+      ]
+    },
+    "tx_atomicity": {
+      "scenarios": [
+        { "name": "chaos_after_insert", "method": "POST", "path": "/api/orders",
+          "inject_point": "after_insert_before_items",
+          "invariant_query": "SELECT id FROM orders WHERE total IS NULL OR total < 0" }
+      ]
+    },
+    "background_jobs": {
+      "poll_timeout_sec": 10,
+      "scenarios": [
+        { "name": "email_on_order", "queue": "email", "trigger_method": "POST",
+          "trigger_path": "/api/orders", "trigger_body": "{\"items\":[{\"amount\":1}]}",
+          "side_effect_probe": "test -s /tmp/toy-email.json" }
+      ]
+    },
+    "audit": {
+      "scenarios": [
+        { "name": "create_order", "method": "POST", "path": "/api/orders",
+          "body": "{\"items\":[{\"amount\":5}]}", "expected_audit_delta": 1 }
+      ]
+    },
+    "authorization": {
+      "endpoints": [
+        { "method": "GET", "path": "/api/orders/1",
+          "owner_fixture": "tenant_a", "wrong_fixture": "tenant_b",
+          "expected_anon": "401", "expected_wrong": "403", "expected_owner": "2xx" }
+      ]
+    },
+    "multi_tenant": {
+      "scenarios": [
+        { "name": "cross_read_orders", "method": "GET", "path": "/api/orders",
+          "expected_code": "403",
+          "leak_check_query": "SELECT count(*) FROM orders WHERE tenant_id='b'" }
+      ]
+    },
+    "contract": { "jwt_fixture": "tenant_a" }
+  },
+  "load_smoke": {
+    "target_url": "http://localhost:3000",
+    "vus": 5,
+    "duration": "15s",
+    "endpoints": [
+      { "method": "POST", "path": "/api/orders?refresh=1",
+        "body": {"items":[{"amount":5},{"amount":7}]},
+        "headers": {"Authorization":"Bearer ta"} },
+      { "method": "GET", "path": "/api/orders",
+        "headers": {"Authorization":"Bearer ta"} }
+    ]
+  },
+  "gates": {
+    "performance": { "p95_max_ms": 50 }
+  },
+  "stack": { "dir": "backend", "lang": "node", "test_cmd": "npm test", "lint_cmd": "echo skip", "type_cmd": "echo skip" }
+}

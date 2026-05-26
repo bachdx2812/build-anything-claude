@@ -1,0 +1,8 @@
+{
+  "gate": "GATE-18d",
+  "passed": false,
+  "verdict": "FAIL",
+  "evidence": {"poll_timeout_sec":10,"scenarios_run":1,"failed":1,"results":[{"name":"email_on_order","queue":"email","pre_depth":13,"after_trigger_depth":14,"enqueued":true,"executed":false,"side_effect_ok":false,"passed":false,"reason":"not executed within 10s; side effect not observed; "}]},
+  "ran_at": "2026-05-26T07:54:23Z",
+  "project": "toy-project"
+}

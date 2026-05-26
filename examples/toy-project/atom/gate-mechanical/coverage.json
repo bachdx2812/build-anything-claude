@@ -1,0 +1,10 @@
+{
+  "gate": "GATE-10",
+  "score": null,
+  "threshold": null,
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "coverage summary has Unknown/0 (tests did not execute or no source loaded); reviewer must fix test discovery OR justify",
+  "review_required": true,
+  "timestamp": "2026-05-26T08:15:02Z"
+}

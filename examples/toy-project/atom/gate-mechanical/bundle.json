@@ -1,0 +1,10 @@
+{
+  "gate": "GATE-14-bundle",
+  "score": null,
+  "threshold": null,
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "build dir dist not produced at /Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/backend; configure frontend.dist_dir OR add a build script OR confirm no FE bundle",
+  "review_required": true,
+  "timestamp": "2026-05-26T08:15:17Z"
+}

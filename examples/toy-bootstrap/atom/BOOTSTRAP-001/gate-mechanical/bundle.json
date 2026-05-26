@@ -1,0 +1,10 @@
+{
+  "gate": "GATE-14-bundle",
+  "score": null,
+  "threshold": null,
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "no package.json at /Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-bootstrap/frontend; set frontend.dir or stack.dir in config OR confirm atom has no FE bundle",
+  "review_required": true,
+  "timestamp": "2026-05-26T09:58:48Z"
+}

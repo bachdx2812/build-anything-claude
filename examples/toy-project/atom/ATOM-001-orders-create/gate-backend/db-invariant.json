@@ -1,0 +1,8 @@
+{
+  "gate": "GATE-18a",
+  "passed": false,
+  "verdict": "FAIL",
+  "evidence": {"invariants_run":3,"failed":1,"results":[{"name":"orders_sum_match","violation_rows":6,"passed":false,"query_sha256":"a66c8448c8c3f1523aed4924c1256b3f910e53eac5ffe00b0e4ea489b43d0fc9"},{"name":"orphan_items","violation_rows":0,"passed":true,"query_sha256":"a0071d6fff85a2278e9f104e774054ec4ace45ea94e9a56905dc55f224e5fee6"},{"name":"tenant_id_present","violation_rows":0,"passed":true,"query_sha256":"4035ea71f83905453f45f56d23685c1cc5ad6294ea20517abe883d77ab89e26e"}]},
+  "ran_at": "2026-05-26T07:54:12Z",
+  "project": "toy-project"
+}

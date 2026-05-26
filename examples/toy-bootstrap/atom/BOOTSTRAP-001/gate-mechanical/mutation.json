@@ -1,0 +1,10 @@
+{
+  "gate": "GATE-11",
+  "score": null,
+  "threshold": null,
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "stryker did not produce JSON output at /Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-bootstrap/src/reports/mutation/.stryker-tmp.json; reviewer must investigate (check stryker.conf.json#jsonReporter.fileName)",
+  "review_required": true,
+  "timestamp": "2026-05-26T09:58:47Z"
+}

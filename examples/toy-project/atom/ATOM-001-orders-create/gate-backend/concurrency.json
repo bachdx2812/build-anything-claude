@@ -1,0 +1,8 @@
+{
+  "gate": "GATE-18b",
+  "passed": false,
+  "verdict": "FAIL",
+  "evidence": {"parallelism":10,"endpoints_tested":1,"failed":1,"results":[{"path":"/api/orders","row_delta":0,"duplicates":1,"codes_2xx":0,"codes_4xx":0,"codes_5xx":10,"passed":false,"reason":"dupes=1; 5xx=10; delta=0 expected=1; "}]},
+  "ran_at": "2026-05-26T07:54:12Z",
+  "project": "toy-project"
+}

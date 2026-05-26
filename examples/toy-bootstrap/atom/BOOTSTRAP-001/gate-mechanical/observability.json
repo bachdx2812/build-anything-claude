@@ -1,0 +1,9 @@
+{
+  "gate": "GATE-15",
+  "score": 2,
+  "threshold": 0,
+  "passed": false,
+  "delta": 2.0000,
+  "extra": {"missing_files":[{"path":"src/.stryker-tmp/sandbox-beMZmJ/calculator.js","reasons":"no-log; no-metric; "},{"path":"src/calculator.js","reasons":"no-log; no-metric; "}],"scope":2},
+  "timestamp": "2026-05-26T09:58:48Z"
+}

@@ -1,0 +1,376 @@
+{
+  "atom": "ATOM-001-orders-create",
+  "ran_at": "2026-05-26T08:57:05Z",
+  "schema_version": "ubs-v8.1",
+  "summary": {
+    "gates_total": 19,
+    "pass": 1,
+    "fail": 14,
+    "na": 4
+  },
+  "gates": {
+    "GATE-10-line": {
+      "gate": "GATE-10-line",
+      "score": 36.14,
+      "threshold": 80,
+      "passed": false,
+      "delta": -43.8600,
+      "extra": {
+        "branch_pct": 100,
+        "branch_threshold": 80,
+        "branch_passed": true,
+        "stack": "node"
+      },
+      "timestamp": "2026-05-26T08:57:04Z"
+    },
+    "GATE-14-lighthouse": {
+      "gate": "GATE-14-lighthouse",
+      "score": null,
+      "threshold": null,
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no frontend.test_urls configured; reviewer must add URLs OR confirm atom has no FE surface",
+      "review_required": true,
+      "timestamp": "2026-05-26T08:05:46Z"
+    },
+    "GATE-lint": {
+      "gate": "GATE-lint",
+      "score": null,
+      "threshold": null,
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "linter for node produced no valid JSON output (config missing or runtime error); reviewer must add lint config OR justify",
+      "review_required": true,
+      "timestamp": "2026-05-26T08:57:03Z"
+    },
+    "GATE-14-load": {
+      "gate": "GATE-14-load",
+      "score": 109,
+      "threshold": 50,
+      "passed": false,
+      "delta": 59.0000,
+      "extra": {
+        "p50_ms": 0,
+        "err_rate": 0,
+        "endpoints": 2
+      },
+      "timestamp": "2026-05-26T08:44:51Z"
+    },
+    "GATE-11": {
+      "gate": "GATE-11",
+      "score": 2.59,
+      "threshold": 60,
+      "passed": false,
+      "delta": -57.4100,
+      "extra": {
+        "killed": 3,
+        "total": 116,
+        "stack": "node",
+        "scope_files": 5
+      },
+      "timestamp": "2026-05-26T08:40:04Z"
+    },
+    "GATE-15": {
+      "gate": "GATE-15",
+      "score": 5,
+      "threshold": 0,
+      "passed": false,
+      "delta": 5.0000,
+      "extra": {
+        "missing_files": [
+          {
+            "path": "backend/server.js",
+            "reasons": "no-log; no-metric; req-bound-no-trace; "
+          },
+          {
+            "path": "backend/db.js",
+            "reasons": "no-log; no-metric; "
+          },
+          {
+            "path": "backend/routes/orders.js",
+            "reasons": "no-log; no-metric; req-bound-no-trace; "
+          },
+          {
+            "path": "backend/routes/auth.js",
+            "reasons": "no-log; no-metric; req-bound-no-trace; "
+          },
+          {
+            "path": "frontend/app.js",
+            "reasons": "no-log; no-metric; "
+          }
+        ],
+        "scope": 5
+      },
+      "timestamp": "2026-05-26T08:05:06Z"
+    },
+    "GATE-type": {
+      "gate": "GATE-type",
+      "score": null,
+      "threshold": null,
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no typed source files in scope; either add scope.paths to .build-anything.json OR confirm atom uses untyped language (eg plain JS/JSON)",
+      "review_required": true,
+      "timestamp": "2026-05-26T08:57:03Z"
+    },
+    "architecture-bridge-substitute": {
+      "gate": "architecture-bridge-substitute",
+      "score": 1,
+      "threshold": 0,
+      "passed": false,
+      "verdict": "FAIL",
+      "evidence": {
+        "tool": "grep (dependency-cruiser not installed — install with: npm i -g dependency-cruiser)",
+        "matches": [
+          "/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/frontend/app.js:3:const Database = null; // intentionally referenced to flag architecture gate."
+        ]
+      },
+      "ran_at": "2026-05-26T08:57:05Z"
+    },
+    "LAW-04-secret-scan": {
+      "gate": "LAW-04-secret-scan",
+      "score": 2,
+      "threshold": 0,
+      "passed": false,
+      "verdict": "FAIL",
+      "evidence": {
+        "tool": "gitleaks 8.30.1",
+        "matches": [
+          {
+            "tool": "grep-complement",
+            "raw": "/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/backend/server.js:13:const ADMIN_API_KEY = \"sk-proj-aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789\";"
+          },
+          {
+            "tool": "grep-complement",
+            "raw": "/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/backend/reports/mutation/.stryker-tmp.json:1:{\"files\":{\"db.js\":{\"language\":\"javascript\",\"mutants\":[{\"id\":\"0\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"statusReason\":\"\\n> toy-project@0.0.1 test\\n> node --test tests/*.test.js\\n\\n\\n✖ orders module loads (27.38425ms)\\n\\n✔ items insert math (0.082084ms)\\n\\nℹ tests 2\\nℹ suites 0\\nℹ pass 1\\nℹ fail 1\\nℹ cancelled 0\\nℹ skipped 0\\nℹ todo 0\\nℹ duration_ms 58.752708\\n\\n✖ failing tests:\\n\\ntest at tests/orders.test.js:7:1\\n✖ orders module loads (27.38425ms)\\n  TypeError [Error]: Expected first argument to be a string\\n      at new Database (/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/backend/node_modules/better-sqlite3/lib/database.js:24:47)\\n      at Object.<anonymous> (/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/backend/.stryker-tmp/sandbox-IvYUQP/db.js:53:12)\\n      at Module._compile (node:internal/modules/cjs/loader:1734:14)\\n      at Object..js (node:internal/modules/cjs/loader:1899:10)\\n      at Module.load (node:internal/modules/cjs/loader:1469:32)\\n      at Function._load (node:internal/modules/cjs/loader:1286:12)\\n      at TracingChannel.traceSync (node:diagnostics_channel:322:14)\\n      at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)\\n      at Module.require (node:internal/modules/cjs/loader:1491:12)\\n      at require (node:internal/modules/helpers:135:16)\\n\",\"status\":\"Killed\",\"testsCompleted\":1,\"killedBy\":[\"0\"],\"location\":{\"end\":{\"column\":78,\"line\":6},\"start\":{\"column\":17,\"line\":6}}},{\"id\":\"1\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"statusReason\":\"\\n> toy-project@0.0.1 test\\n> node --test tests/*.test.js\\n\\n\\n✖ orders module loads (27.519375ms)\\n\\n✔ items insert math (0.080083ms)\\n\\nℹ tests 2\\nℹ suites 0\\nℹ pass 1\\nℹ fail 1\\nℹ cancelled 0\\nℹ skipped 0\\nℹ todo 0\\nℹ duration_ms 58.746334\\n\\n✖ failing tests:\\n\\ntest at tests/orders.test.js:7:1\\n✖ orders module loads (27.519375ms)\\n  TypeError [Error]: Expected first argument to be a string\\n      at new Database (/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/backend/node_modules/better-sqlite3/lib/database.js:24:47)\\n      at Object.<anonymous> (/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/backend/.stryker-tmp/sandbox-IvYUQP/db.js:53:12)\\n      at Module._compile (node:internal/modules/cjs/loader:1734:14)\\n      at Object..js (node:internal/modules/cjs/loader:1899:10)\\n      at Module.load (node:internal/modules/cjs/loader:1469:32)\\n      at Function._load (node:internal/modules/cjs/loader:1286:12)\\n      at TracingChannel.traceSync (node:diagnostics_channel:322:14)\\n      at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)\\n      at Module.require (node:internal/modules/cjs/loader:1491:12)\\n      at require (node:internal/modules/helpers:135:16)\\n\",\"status\":\"Killed\",\"testsCompleted\":1,\"killedBy\":[\"0\"],\"location\":{\"end\":{\"column\":78,\"line\":6},\"start\":{\"column\":17,\"line\":6}}},{\"id\":\"2\",\"mutatorName\":\"LogicalOperator\",\"replacement\":\"process.env.DB_URL && path.join(__dirname, '../.toy-test.db')\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":78,\"line\":6},\"start\":{\"column\":17,\"line\":6}}},{\"id\":\"3\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"statusReason\":\"\\n> toy-project@0.0.1 test\\n> node --test tests/*.test.js\\n\\n\\n✖ orders module loads (27.913667ms)\\n\\n✔ items insert math (0.082125ms)\\n\\nℹ tests 2\\nℹ suites 0\\nℹ pass 1\\nℹ fail 1\\nℹ cancelled 0\\nℹ skipped 0\\nℹ todo 0\\nℹ duration_ms 58.0205\\n\\n✖ failing tests:\\n\\ntest at tests/orders.test.js:7:1\\n✖ orders module loads (27.913667ms)\\n  { code: 'SQLITE_CANTOPEN' }\\n\",\"status\":\"Killed\",\"testsCompleted\":1,\"killedBy\":[\"0\"],\"location\":{\"end\":{\"column\":77,\"line\":6},\"start\":{\"column\":60,\"line\":6}}},{\"id\":\"4\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":12},\"start\":{\"column\":19,\"line\":9}}},{\"id\":\"5\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":75,\"line\":10},\"start\":{\"column\":55,\"line\":10}}},{\"id\":\"6\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":84,\"line\":10},\"start\":{\"column\":78,\"line\":10}}},{\"id\":\"7\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":32,\"line\":14},\"start\":{\"column\":18,\"line\":14}}}],\"source\":\"// SQLite — embedded for zero-setup dry-run. Real prod = Postgres.\\nconst Database = require('better-sqlite3');\\nconst path = require('path');\\nconst fs = require('fs');\\n\\nconst DB_PATH = process.env.DB_URL || path.join(__dirname, '../.toy-test.db');\\nconst db = new Database(DB_PATH);\\n\\nfunction initDb() {\\n  const schema = fs.readFileSync(path.join(__dirname, '../schema/init.sql'), 'utf8');\\n  db.exec(schema);\\n}\\n\\nmodule.exports = { db, initDb };\\n\"},\"routes/auth.js\":{\"language\":\"javascript\",\"mutants\":[{\"id\":\"8\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":21,\"line\":5},\"start\":{\"column\":13,\"line\":5}}},{\"id\":\"9\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":10},\"start\":{\"column\":37,\"line\":5}}},{\"id\":\"10\",\"mutatorName\":\"BooleanLiteral\",\"replacement\":\"user\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":12,\"line\":8},\"start\":{\"column\":7,\"line\":8}}},{\"id\":\"11\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":12,\"line\":8},\"start\":{\"column\":7,\"line\":8}}},{\"id\":\"12\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":12,\"line\":8},\"start\":{\"column\":7,\"line\":8}}},{\"id\":\"13\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":67,\"line\":8},\"start\":{\"column\":42,\"line\":8}}},{\"id\":\"14\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":65,\"line\":8},\"start\":{\"column\":51,\"line\":8}}},{\"id\":\"15\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":50,\"line\":9},\"start\":{\"column\":12,\"line\":9}}},{\"id\":\"16\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"``\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":48,\"line\":9},\"start\":{\"column\":21,\"line\":9}}},{\"id\":\"17\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":46,\"line\":9},\"start\":{\"column\":32,\"line\":9}}},{\"id\":\"18\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":46,\"line\":9},\"start\":{\"column\":32,\"line\":9}}},{\"id\":\"19\",\"mutatorName\":\"LogicalOperator\",\"replacement\":\"user[0] && 'a'\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":46,\"line\":9},\"start\":{\"column\":32,\"line\":9}}},{\"id\":\"20\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":46,\"line\":9},\"start\":{\"column\":43,\"line\":9}}}],\"source\":\"// auth.js — minimal stub for toy. Real prod = JWT verify.\\nconst express = require('express');\\nconst router = express.Router();\\n\\nrouter.post('/login', (req, res) => {\\n  // Toy: trust username param. Real prod = bcrypt + JWT issue.\\n  const { user } = req.body;\\n  if (!user) return res.status(400).json({ error: 'missing user' });\\n  res.json({ token: `Bearer t${user[0] || 'a'}` });\\n});\\n\\nmodule.exports = router;\\n\"},\"routes/orders.js\":{\"language\":\"javascript\",\"mutants\":[{\"id\":\"21\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":11},\"start\":{\"column\":22,\"line\":7}}},{\"id\":\"22\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":43,\"line\":8},\"start\":{\"column\":13,\"line\":8}}},{\"id\":\"23\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":43,\"line\":8},\"start\":{\"column\":13,\"line\":8}}},{\"id\":\"24\",\"mutatorName\":\"LogicalOperator\",\"replacement\":\"req.get('Authorization') && ''\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":43,\"line\":8},\"start\":{\"column\":13,\"line\":8}}},{\"id\":\"25\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":36,\"line\":8},\"start\":{\"column\":21,\"line\":8}}},{\"id\":\"26\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"Stryker was here!\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":43,\"line\":8},\"start\":{\"column\":41,\"line\":8}}},{\"id\":\"27\",\"mutatorName\":\"Regex\",\"replacement\":\"/Bearer\\\\st(.)/\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":36,\"line\":9},\"start\":{\"column\":21,\"line\":9}}},{\"id\":\"28\",\"mutatorName\":\"Regex\",\"replacement\":\"/Bearer\\\\S+t(.)/\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":36,\"line\":9},\"start\":{\"column\":21,\"line\":9}}},{\"id\":\"29\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":15,\"line\":14},\"start\":{\"column\":12,\"line\":14}}},{\"id\":\"30\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":20},\"start\":{\"column\":31,\"line\":14}}},{\"id\":\"31\",\"mutatorName\":\"BooleanLiteral\",\"replacement\":\"t\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":9,\"line\":16},\"start\":{\"column\":7,\"line\":16}}},{\"id\":\"32\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":9,\"line\":16},\"start\":{\"column\":7,\"line\":16}}},{\"id\":\"33\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":9,\"line\":16},\"start\":{\"column\":7,\"line\":16}}},{\"id\":\"34\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":59,\"line\":16},\"start\":{\"column\":39,\"line\":16}}},{\"id\":\"35\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":57,\"line\":16},\"start\":{\"column\":48,\"line\":16}}},{\"id\":\"36\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":68,\"line\":18},\"start\":{\"column\":27,\"line\":18}}},{\"id\":\"37\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":16,\"line\":23},\"start\":{\"column\":13,\"line\":23}}},{\"id\":\"38\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":57},\"start\":{\"column\":32,\"line\":23}}},{\"id\":\"39\",\"mutatorName\":\"BooleanLiteral\",\"replacement\":\"t\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":9,\"line\":25},\"start\":{\"column\":7,\"line\":25}}},{\"id\":\"40\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":9,\"line\":25},\"start\":{\"column\":7,\"line\":25}}},{\"id\":\"41\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":9,\"line\":25},\"start\":{\"column\":7,\"line\":25}}},{\"id\":\"42\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":59,\"line\":25},\"start\":{\"column\":39,\"line\":25}}},{\"id\":\"43\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":57,\"line\":25},\"start\":{\"column\":48,\"line\":25}}},{\"id\":\"44\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":37,\"line\":27},\"start\":{\"column\":17,\"line\":27}}},{\"id\":\"45\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":37,\"line\":27},\"start\":{\"column\":17,\"line\":27}}},{\"id\":\"46\",\"mutatorName\":\"LogicalOperator\",\"replacement\":\"req.body.items && []\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":37,\"line\":27},\"start\":{\"column\":17,\"line\":27}}},{\"id\":\"47\",\"mutatorName\":\"ArrayDeclaration\",\"replacement\":\"[\\\"Stryker was here\\\"]\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":37,\"line\":27},\"start\":{\"column\":35,\"line\":27}}},{\"id\":\"48\",\"mutatorName\":\"ArrowFunction\",\"replacement\":\"() => undefined\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":62,\"line\":30},\"start\":{\"column\":33,\"line\":30}}},{\"id\":\"49\",\"mutatorName\":\"ArithmeticOperator\",\"replacement\":\"s - (i.amount || 0)\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":62,\"line\":30},\"start\":{\"column\":43,\"line\":30}}},{\"id\":\"50\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":61,\"line\":30},\"start\":{\"column\":48,\"line\":30}}},{\"id\":\"51\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":61,\"line\":30},\"start\":{\"column\":48,\"line\":30}}},{\"id\":\"52\",\"mutatorName\":\"LogicalOperator\",\"replacement\":\"i.amount && 0\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":61,\"line\":30},\"start\":{\"column\":48,\"line\":30}}},{\"id\":\"53\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":38,\"line\":31},\"start\":{\"column\":18,\"line\":31}}},{\"id\":\"54\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":38,\"line\":31},\"start\":{\"column\":18,\"line\":31}}},{\"id\":\"55\",\"mutatorName\":\"EqualityOperator\",\"replacement\":\"Date.now() % 3 !== 0\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":38,\"line\":31},\"start\":{\"column\":18,\"line\":31}}},{\"id\":\"56\",\"mutatorName\":\"ArithmeticOperator\",\"replacement\":\"Date.now() * 3\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":32,\"line\":31},\"start\":{\"column\":18,\"line\":31}}},{\"id\":\"57\",\"mutatorName\":\"ArithmeticOperator\",\"replacement\":\"sumItems - 1\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":54,\"line\":31},\"start\":{\"column\":42,\"line\":31}}},{\"id\":\"58\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":35,\"line\":34},\"start\":{\"column\":16,\"line\":34}}},{\"id\":\"59\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":35,\"line\":34},\"start\":{\"column\":16,\"line\":34}}},{\"id\":\"60\",\"mutatorName\":\"LogicalOperator\",\"replacement\":\"req.body.note && ''\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":35,\"line\":34},\"start\":{\"column\":16,\"line\":34}}},{\"id\":\"61\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"Stryker was here!\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":35,\"line\":34},\"start\":{\"column\":33,\"line\":34}}},{\"id\":\"62\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"``\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":103,\"line\":35},\"start\":{\"column\":23,\"line\":35}}},{\"id\":\"63\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":4,\"line\":42},\"start\":{\"column\":27,\"line\":40}}},{\"id\":\"64\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":73,\"line\":41},\"start\":{\"column\":16,\"line\":41}}},{\"id\":\"65\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":89,\"line\":45},\"start\":{\"column\":14,\"line\":45}}},{\"id\":\"66\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":36,\"line\":46},\"start\":{\"column\":25,\"line\":46}}},{\"id\":\"67\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":32,\"line\":49},\"start\":{\"column\":7,\"line\":49}}},{\"id\":\"69\",\"mutatorName\":\"EqualityOperator\",\"replacement\":\"req.query.refresh !== '1'\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":32,\"line\":49},\"start\":{\"column\":7,\"line\":49}}},{\"id\":\"68\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":32,\"line\":49},\"start\":{\"column\":7,\"line\":49}}},{\"id\":\"70\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":32,\"line\":49},\"start\":{\"column\":29,\"line\":49}}},{\"id\":\"71\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":4,\"line\":54},\"start\":{\"column\":34,\"line\":49}}},{\"id\":\"72\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":69,\"line\":50},\"start\":{\"column\":28,\"line\":50}}},{\"id\":\"73\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":6,\"line\":53},\"start\":{\"column\":26,\"line\":51}}},{\"id\":\"74\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":62,\"line\":52},\"start\":{\"column\":18,\"line\":52}}},{\"id\":\"75\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":34,\"line\":56},\"start\":{\"column\":12,\"line\":56}}},{\"id\":\"77\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":67},\"start\":{\"column\":34,\"line\":60}}},{\"id\":\"76\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":18,\"line\":60},\"start\":{\"column\":12,\"line\":60}}},{\"id\":\"78\",\"mutatorName\":\"BooleanLiteral\",\"replacement\":\"t\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":9,\"line\":62},\"start\":{\"column\":7,\"line\":62}}},{\"id\":\"79\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":9,\"line\":62},\"start\":{\"column\":7,\"line\":62}}},{\"id\":\"80\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":9,\"line\":62},\"start\":{\"column\":7,\"line\":62}}},{\"id\":\"81\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":59,\"line\":62},\"start\":{\"column\":39,\"line\":62}}},{\"id\":\"82\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":57,\"line\":62},\"start\":{\"column\":48,\"line\":62}}},{\"id\":\"83\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":59,\"line\":64},\"start\":{\"column\":26,\"line\":64}}},{\"id\":\"85\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":11,\"line\":65},\"start\":{\"column\":7,\"line\":65}}},{\"id\":\"84\",\"mutatorName\":\"BooleanLiteral\",\"replacement\":\"row\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":11,\"line\":65},\"start\":{\"column\":7,\"line\":65}}},{\"id\":\"86\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":11,\"line\":65},\"start\":{\"column\":7,\"line\":65}}},{\"id\":\"87\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":63,\"line\":65},\"start\":{\"column\":41,\"line\":65}}},{\"id\":\"88\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":61,\"line\":65},\"start\":{\"column\":50,\"line\":65}}}],\"source\":\"// orders.js — toy CRUD + intentional seeded bugs.\\nconst express = require('express');\\nconst { db } = require('../db');\\nconst router = express.Router();\\n\\n// fake JWT decode — production uses jose. Trusts header content; fine for toy.\\nfunction tenant(req) {\\n  const h = req.get('Authorization') || '';\\n  const m = h.match(/Bearer\\\\s+t(.)/);\\n  return m ? m[1] : null; // 'a' or 'b'\\n}\\n\\n// LIST — BUG-10: missing tenant filter — GATE-21 must catch (multi-tenant leak).\\nrouter.get('/', (req, res) => {\\n  const t = tenant(req);\\n  if (!t) return res.status(401).json({ error: 'no auth' });\\n  // BUG-10: SHOULD filter WHERE tenant_id = $t. Returns ALL rows.\\n  const rows = db.prepare('SELECT id, tenant_id, total FROM orders').all();\\n  res.json(rows);\\n});\\n\\n// CREATE — BUG-09: non-idempotent — GATE-20 must catch.\\nrouter.post('/', (req, res) => {\\n  const t = tenant(req);\\n  if (!t) return res.status(401).json({ error: 'no auth' });\\n  // BUG-09: ignores Idempotency-Key — same key+body creates duplicate rows.\\n  const items = req.body.items || [];\\n  // BUG-07: sum mismatch — invariant SUM(items.amount)==orders.total violated.\\n  // total deliberately != sum(items) on every 3rd order to seed invariant bug.\\n  const sumItems = items.reduce((s, i) => s + (i.amount || 0), 0);\\n  const total = (Date.now() % 3 === 0) ? sumItems + 1 : sumItems;\\n\\n  // BUG-04: SQL injection via string-concat (use prepared in real code).\\n  const note = req.body.note || '';\\n  const insertOrder = `INSERT INTO orders(tenant_id, total, note) VALUES('${t}', ${total}, '${note}')`;\\n  const r = db.prepare(insertOrder).run();\\n  const orderId = r.lastInsertRowid;\\n\\n  // BUG-08: items insert but NO audit_log row → GATE-18e catches silent 2xx.\\n  for (const it of items) {\\n    db.prepare('INSERT INTO order_items(order_id, amount) VALUES (?, ?)').run(orderId, it.amount);\\n  }\\n\\n  // BUG-12: enqueue email job but never actually mark it executed — bg job test catches it.\\n  db.prepare(\\\"INSERT INTO job_queue(queue, status, payload) VALUES('email','pending',?)\\\")\\n    .run(JSON.stringify({ orderId }));\\n\\n  // BUG-05 (N+1): list orders again with N+1 pattern; GATE-14 perf budget must flag.\\n  if (req.query.refresh === '1') {\\n    const all = db.prepare('SELECT id FROM orders WHERE tenant_id=?').all(t);\\n    for (const o of all) {\\n      db.prepare('SELECT * FROM order_items WHERE order_id=?').all(o.id);\\n    }\\n  }\\n\\n  res.json({ id: orderId, total });\\n});\\n\\n// GET by id — BUG-11: missing authz check (returns any tenant's order).\\nrouter.get('/:id', (req, res) => {\\n  const t = tenant(req);\\n  if (!t) return res.status(401).json({ error: 'no auth' });\\n  // BUG-11: no WHERE tenant_id check → GATE-18f authorization test catches.\\n  const row = db.prepare('SELECT * FROM orders WHERE id=?').get(req.params.id);\\n  if (!row) return res.status(404).json({ error: 'not found' });\\n  res.json(row);\\n});\\n\\nmodule.exports = router;\\n\"},\"server.js\":{\"language\":\"javascript\",\"mutants\":[{\"id\":\"89\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":69,\"line\":13},\"start\":{\"column\":23,\"line\":13}}},{\"id\":\"90\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":22,\"line\":18},\"start\":{\"column\":9,\"line\":18}}},{\"id\":\"91\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":20,\"line\":19},\"start\":{\"column\":9,\"line\":19}}},{\"id\":\"92\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":36,\"line\":22},\"start\":{\"column\":9,\"line\":22}}},{\"id\":\"93\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":25},\"start\":{\"column\":52,\"line\":22}}},{\"id\":\"94\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":98,\"line\":23},\"start\":{\"column\":26,\"line\":23}}},{\"id\":\"95\",\"mutatorName\":\"ArrowFunction\",\"replacement\":\"() => undefined\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":35},\"start\":{\"column\":20,\"line\":28}}},{\"id\":\"96\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":35},\"start\":{\"column\":52,\"line\":28}}},{\"id\":\"97\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":42,\"line\":29},\"start\":{\"column\":7,\"line\":29}}},{\"id\":\"98\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":42,\"line\":29},\"start\":{\"column\":7,\"line\":29}}},{\"id\":\"99\",\"mutatorName\":\"EqualityOperator\",\"replacement\":\"req.get('X-Chaos-Inject') !== point\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":42,\"line\":29},\"start\":{\"column\":7,\"line\":29}}},{\"id\":\"100\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":31,\"line\":29},\"start\":{\"column\":15,\"line\":29}}},{\"id\":\"101\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":4,\"line\":33},\"start\":{\"column\":44,\"line\":29}}},{\"id\":\"102\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"\\\"\\\"\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":36,\"line\":30},\"start\":{\"column\":27,\"line\":30}}},{\"id\":\"103\",\"mutatorName\":\"BooleanLiteral\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":21,\"line\":31},\"start\":{\"column\":17,\"line\":31}}},{\"id\":\"104\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":40},\"start\":{\"column\":36,\"line\":37}}},{\"id\":\"105\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":64,\"line\":39},\"start\":{\"column\":42,\"line\":39}}},{\"id\":\"106\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":28,\"line\":42},\"start\":{\"column\":5,\"line\":42}}},{\"id\":\"107\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":28,\"line\":42},\"start\":{\"column\":5,\"line\":42}}},{\"id\":\"108\",\"mutatorName\":\"EqualityOperator\",\"replacement\":\"require.main !== module\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":28,\"line\":42},\"start\":{\"column\":5,\"line\":42}}},{\"id\":\"109\",\"mutatorName\":\"BlockStatement\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":2,\"line\":46},\"start\":{\"column\":30,\"line\":42}}},{\"id\":\"111\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"false\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":40,\"line\":44},\"start\":{\"column\":16,\"line\":44}}},{\"id\":\"110\",\"mutatorName\":\"ConditionalExpression\",\"replacement\":\"true\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":40,\"line\":44},\"start\":{\"column\":16,\"line\":44}}},{\"id\":\"112\",\"mutatorName\":\"LogicalOperator\",\"replacement\":\"process.env.PORT && 3000\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":40,\"line\":44},\"start\":{\"column\":16,\"line\":44}}},{\"id\":\"113\",\"mutatorName\":\"ArrowFunction\",\"replacement\":\"() => undefined\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":63,\"line\":45},\"start\":{\"column\":20,\"line\":45}}},{\"id\":\"114\",\"mutatorName\":\"StringLiteral\",\"replacement\":\"``\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":62,\"line\":45},\"start\":{\"column\":38,\"line\":45}}},{\"id\":\"115\",\"mutatorName\":\"ObjectLiteral\",\"replacement\":\"{}\",\"status\":\"Survived\",\"testsCompleted\":1,\"location\":{\"end\":{\"column\":40,\"line\":48},\"start\":{\"column\":18,\"line\":48}}}],\"source\":\"// Toy backend for dry-run validation of /build-anything skill.\\n// Intentionally contains 12 seeded bugs — see ../seeded-bugs.md.\\n// NEVER deploy this. Local docker-compose only.\\nconst express = require('express');\\nconst { initDb, db } = require('./db');\\nconst ordersRouter = require('./routes/orders');\\nconst authRouter = require('./routes/auth');\\n\\nconst app = express();\\napp.use(express.json());\\n\\n// BUG-03: hardcoded \\\"API key\\\" left in plain source — LAW-04 must catch.\\nconst ADMIN_API_KEY = \\\"sk-proj-aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789\\\";\\n\\n// BUG-06: no request logging middleware — GATE-15 must catch.\\n// (deliberately no morgan/pino — observability gap)\\n\\napp.use('/api/orders', ordersRouter);\\napp.use('/api/auth', authRouter);\\n\\n// admin queue depth endpoint for GATE-18d\\napp.get('/admin/queues/:name/depth', (req, res) => {\\n  const row = db.prepare(\\\"SELECT count(*) AS c FROM job_queue WHERE queue=? AND status='pending'\\\").get(req.params.name);\\n  res.json(row.c);\\n});\\n\\n// chaos middleware honoring X-Chaos-Inject for GATE-18c tests\\napp.locals.chaos = (point) => (req, _res, next) => {\\n  if (req.get('X-Chaos-Inject') === point) {\\n    const err = new Error('chaos: ' + point);\\n    err.chaos = true;\\n    return next(err);\\n  }\\n  next();\\n};\\n\\napp.use((err, _req, res, _next) => {\\n  // BUG-13 partial: error message leaks key on certain paths (security smell)\\n  res.status(err.chaos ? 500 : 500).json({ error: err.message });\\n});\\n\\nif (require.main === module) {\\n  initDb();\\n  const port = process.env.PORT || 3000;\\n  app.listen(port, () => console.log(`toy backend on ${port}`));\\n}\\n\\nmodule.exports = { app, ADMIN_API_KEY };\\n\"}},\"schemaVersion\":\"1.0\",\"thresholds\":{\"high\":80,\"low\":60,\"break\":null},\"testFiles\":{\"\":{\"tests\":[{\"id\":\"0\",\"name\":\"All tests\"}]}},\"projectRoot\":\"/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/backend\",\"config\":{\"testRunner\":\"command\",\"commandRunner\":{\"command\":\"npm test\"},\"mutate\":[\"routes/*.js\",\"server.js\",\"db.js\"],\"reporters\":[\"json\",\"clear-text\"],\"jsonReporter\":{\"fileName\":\"reports/mutation/.stryker-tmp.json\"},\"timeoutMS\":30000,\"concurrency\":2,\"logLevel\":\"warn\",\"allowConsoleColors\":true,\"checkers\":[],\"checkerNodeArgs\":[],\"coverageAnalysis\":\"perTest\",\"clearTextReporter\":{\"allowColor\":true,\"allowEmojis\":false,\"logTests\":true,\"maxTestsToLog\":3,\"reportTests\":true,\"reportMutants\":true,\"reportScoreTable\":true,\"skipFull\":false},\"dashboard\":{\"baseUrl\":\"https://dashboard.stryker-mutator.io/api/reports\",\"reportType\":\"full\"},\"dryRunOnly\":false,\"eventReporter\":{\"baseDir\":\"reports/mutation/events\"},\"ignorePatterns\":[],\"ignoreStatic\":false,\"incremental\":false,\"incrementalFile\":\"reports/stryker-incremental.json\",\"force\":false,\"fileLogLevel\":\"off\",\"inPlace\":false,\"maxConcurrentTestRunners\":9007199254740991,\"maxTestRunnerReuse\":0,\"mutator\":{\"plugins\":null,\"excludedMutations\":[]},\"plugins\":[\"@stryker-mutator/*\"],\"appendPlugins\":[],\"htmlReporter\":{\"fileName\":\"reports/mutation/mutation.html\"},\"disableTypeChecks\":true,\"symlinkNodeModules\":true,\"tempDirName\":\".stryker-tmp\",\"cleanTempDir\":true,\"testRunnerNodeArgs\":[],\"thresholds\":{\"high\":80,\"low\":60,\"break\":null},\"timeoutFactor\":1.5,\"dryRunTimeoutMinutes\":5,\"tsconfigFile\":\"tsconfig.json\",\"warnings\":true,\"disableBail\":false,\"allowEmpty\":false,\"ignorers\":[],\"testFiles\":[]},\"framework\":{\"name\":\"StrykerJS\",\"version\":\"9.6.1\",\"branding\":{\"homepageUrl\":\"https://stryker-mutator.io\",\"imageUrl\":\"data:image/svg+xml;utf8,%3Csvg viewBox='0 0 1458 1458' xmlns='http://www.w3.org/2000/svg' fill-rule='evenodd' clip-rule='evenodd' stroke-linejoin='round' stroke-miterlimit='2'%3E%3Cpath fill='none' d='M0 0h1458v1458H0z'/%3E%3CclipPath id='a'%3E%3Cpath d='M0 0h1458v1458H0z'/%3E%3C/clipPath%3E%3Cg clip-path='url(%23a)'%3E%3Cpath d='M1458 729c0 402.655-326.345 729-729 729S0 1131.655 0 729C0 326.445 326.345 0 729 0s729 326.345 729 729' fill='%23e74c3c' fill-rule='nonzero'/%3E%3Cpath d='M778.349 1456.15L576.6 1254.401l233-105 85-78.668v-64.332l-257-257-44-187-50-208 251.806-82.793L1076.6 389.401l380.14 379.15c-19.681 367.728-311.914 663.049-678.391 687.599z' fill-opacity='.3'/%3E%3Cpath d='M753.4 329.503c41.79 0 74.579 7.83 97.925 25.444 23.571 18.015 41.69 43.956 55.167 77.097l11.662 28.679 165.733-58.183-14.137-32.13c-26.688-60.655-64.896-108.61-114.191-144.011-49.329-35.423-117.458-54.302-204.859-54.302-50.78 0-95.646 7.376-134.767 21.542-40.093 14.671-74.09 34.79-102.239 60.259-28.84 26.207-50.646 57.06-65.496 92.701-14.718 35.052-22.101 72.538-22.101 112.401 0 72.536 20.667 133.294 61.165 182.704 38.624 47.255 98.346 88.037 179.861 121.291 42.257 17.475 78.715 33.125 109.227 46.994 27.193 12.361 49.294 26.124 66.157 41.751 15.309 14.186 26.497 30.584 33.63 49.258 7.721 20.214 11.16 45.69 11.16 76.402 0 28.021-4.251 51.787-13.591 71.219-8.832 18.374-20.171 33.178-34.523 44.219-14.787 11.374-31.193 19.591-49.393 24.466-19.68 5.359-39.14 7.993-58.69 7.993-29.359 0-54.387-3.407-75.182-10.747-20.112-7.013-37.144-16.144-51.259-27.486-13.618-11.009-24.971-23.766-33.744-38.279-9.64-15.8-17.272-31.924-23.032-48.408l-10.965-31.376-161.669 60.585 10.734 30.124c10.191 28.601 24.197 56.228 42.059 82.748 18.208 27.144 41.322 51.369 69.525 72.745 27.695 21.075 60.904 38.218 99.481 51.041 37.777 12.664 82.004 19.159 132.552 19.159 49.998 0 95.818-8.321 137.611-24.622 42.228-16.471 78.436-38.992 108.835-67.291 30.719-28.597 54.631-62.103 71.834-100.642 17.263-38.56 25.923-79.392 25.923-122.248 0-54.339-8.368-100.37-24.208-138.32-16.29-38.759-38.252-71.661-65.948-98.797-26.965-26.418-58.269-48.835-93.858-67.175-33.655-17.241-69.196-33.11-106.593-47.533-35.934-13.429-65.822-26.601-89.948-39.525-22.153-11.868-40.009-24.21-53.547-37.309-11.429-11.13-19.83-23.678-24.718-37.664-5.413-15.49-7.98-33.423-7.98-53.577 0-40.883 11.293-71.522 37.086-90.539 28.443-20.825 64.985-30.658 109.311-30.658z' fill='%23f1c40f' fill-rule='nonzero'/%3E%3Cpath d='M720 0h18v113h-18zM1458 738v-18h-113v18h113zM720 1345h18v113h-18zM113 738v-18H0v18h113z'/%3E%3C/g%3E%3C/svg%3E\"},\"dependencies\":{}}}"
+          }
+        ]
+      },
+      "ran_at": "2026-05-26T08:57:05Z"
+    },
+    "GATE-16-property-substitute": {
+      "gate": "GATE-16-property-substitute",
+      "score": 1,
+      "threshold": 0,
+      "passed": false,
+      "verdict": "FAIL",
+      "evidence": {
+        "tool": "grep (semgrep not installed — install with: pip install semgrep)",
+        "matches": [
+          "/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/backend/routes/orders.js:35:  const insertOrder = `INSERT INTO orders(tenant_id, total, note) VALUES('${t}', ${total}, '${note}')`;"
+        ]
+      },
+      "ran_at": "2026-05-26T08:57:05Z"
+    },
+    "GATE-19": {
+      "gate": "GATE-19",
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no schemathesis/dredd installed; reviewer must install (pip install schemathesis) OR justify",
+      "review_required": true,
+      "ran_at": "2026-05-26T07:54:23Z",
+      "project": "toy-project"
+    },
+    "GATE-18e": {
+      "gate": "GATE-18e",
+      "passed": false,
+      "verdict": "FAIL",
+      "evidence": {
+        "audit_table": "audit_log",
+        "scenarios_run": 1,
+        "failed": 1,
+        "results": [
+          {
+            "name": "create_order",
+            "http_code": "200",
+            "pre": 0,
+            "post": 0,
+            "actual_delta": 0,
+            "expected_delta": 1,
+            "passed": false,
+            "reason": "silent: 2xx response without audit row — exactly what GATE-18e catches"
+          }
+        ]
+      },
+      "ran_at": "2026-05-26T07:54:23Z",
+      "project": "toy-project"
+    },
+    "GATE-18f": {
+      "gate": "GATE-18f",
+      "passed": false,
+      "verdict": "FAIL",
+      "evidence": {
+        "endpoints_tested": 1,
+        "failed": 1,
+        "results": [
+          {
+            "method": "GET",
+            "path": "/api/orders/1",
+            "code_anon": "401",
+            "code_wrong": "200",
+            "code_owner": "200",
+            "expected_anon": "401",
+            "expected_wrong": "403",
+            "expected_owner": "2xx",
+            "passed": false,
+            "reason": "wrong=200 want=403; "
+          }
+        ]
+      },
+      "ran_at": "2026-05-26T07:54:23Z",
+      "project": "toy-project"
+    },
+    "GATE-18d": {
+      "gate": "GATE-18d",
+      "passed": false,
+      "verdict": "FAIL",
+      "evidence": {
+        "poll_timeout_sec": 10,
+        "scenarios_run": 1,
+        "failed": 1,
+        "results": [
+          {
+            "name": "email_on_order",
+            "queue": "email",
+            "pre_depth": 13,
+            "after_trigger_depth": 14,
+            "enqueued": true,
+            "executed": false,
+            "side_effect_ok": false,
+            "passed": false,
+            "reason": "not executed within 10s; side effect not observed; "
+          }
+        ]
+      },
+      "ran_at": "2026-05-26T07:54:23Z",
+      "project": "toy-project"
+    },
+    "GATE-18b": {
+      "gate": "GATE-18b",
+      "passed": false,
+      "verdict": "FAIL",
+      "evidence": {
+        "parallelism": 10,
+        "endpoints_tested": 1,
+        "failed": 1,
+        "results": [
+          {
+            "path": "/api/orders",
+            "row_delta": 0,
+            "duplicates": 1,
+            "codes_2xx": 0,
+            "codes_4xx": 0,
+            "codes_5xx": 10,
+            "passed": false,
+            "reason": "dupes=1; 5xx=10; delta=0 expected=1; "
+          }
+        ]
+      },
+      "ran_at": "2026-05-26T07:54:12Z",
+      "project": "toy-project"
+    },
+    "GATE-18a": {
+      "gate": "GATE-18a",
+      "passed": false,
+      "verdict": "FAIL",
+      "evidence": {
+        "invariants_run": 3,
+        "failed": 1,
+        "results": [
+          {
+            "name": "orders_sum_match",
+            "violation_rows": 6,
+            "passed": false,
+            "query_sha256": "a66c8448c8c3f1523aed4924c1256b3f910e53eac5ffe00b0e4ea489b43d0fc9"
+          },
+          {
+            "name": "orphan_items",
+            "violation_rows": 0,
+            "passed": true,
+            "query_sha256": "a0071d6fff85a2278e9f104e774054ec4ace45ea94e9a56905dc55f224e5fee6"
+          },
+          {
+            "name": "tenant_id_present",
+            "violation_rows": 0,
+            "passed": true,
+            "query_sha256": "4035ea71f83905453f45f56d23685c1cc5ad6294ea20517abe883d77ab89e26e"
+          }
+        ]
+      },
+      "ran_at": "2026-05-26T07:54:12Z",
+      "project": "toy-project"
+    },
+    "GATE-20": {
+      "gate": "GATE-20",
+      "passed": false,
+      "verdict": "FAIL",
+      "evidence": {
+        "endpoints_tested": 1,
+        "failed": 1,
+        "results": [
+          {
+            "path": "/api/orders",
+            "key": "ba-idem-1779782063-24706",
+            "row_delta": 3,
+            "code1": "200200",
+            "code2": "200",
+            "id1": "17",
+            "id2": "18",
+            "passed": false,
+            "reason": "row_delta=3 (want 1); id mismatch (17 vs 18); call1 code=200200; "
+          }
+        ]
+      },
+      "ran_at": "2026-05-26T07:54:23Z",
+      "project": "toy-project"
+    },
+    "GATE-21": {
+      "gate": "GATE-21",
+      "passed": false,
+      "verdict": "FAIL",
+      "evidence": {
+        "tenant_a": "a",
+        "tenant_b": "b",
+        "scenarios_run": 1,
+        "failed": 1,
+        "results": [
+          {
+            "name": "cross_read_orders",
+            "path": "/api/orders",
+            "code": "200",
+            "leak_in_body": true,
+            "leak_in_db": true,
+            "passed": false,
+            "reason": "code=200 want=403 and tenant-B leak in body; DB leak detected; "
+          }
+        ]
+      },
+      "ran_at": "2026-05-26T07:54:23Z",
+      "project": "toy-project"
+    },
+    "GATE-18c": {
+      "gate": "GATE-18c",
+      "passed": true,
+      "verdict": "PASS",
+      "evidence": {
+        "scenarios_run": 1,
+        "failed": 0,
+        "results": [
+          {
+            "name": "chaos_after_insert",
+            "inject_point": "after_insert_before_items",
+            "http_code": "200",
+            "pre_rows": 0,
+            "post_rows": 0,
+            "invariant_ok": true,
+            "rollback_ok": true,
+            "passed": true,
+            "reason": ""
+          }
+        ]
+      },
+      "ran_at": "2026-05-26T07:54:13Z",
+      "project": "toy-project"
+    }
+  }
+}

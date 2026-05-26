@@ -1,0 +1,14 @@
+{
+  "gate": "architecture-bridge-substitute",
+  "score": 1,
+  "threshold": 0,
+  "passed": false,
+  "verdict": "FAIL",
+  "evidence": {
+    "tool": "grep (dependency-cruiser not installed — install with: npm i -g dependency-cruiser)",
+    "matches": [
+      "/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/frontend/app.js:3:const Database = null; // intentionally referenced to flag architecture gate."
+    ]
+  },
+  "ran_at": "2026-05-26T08:57:05Z"
+}

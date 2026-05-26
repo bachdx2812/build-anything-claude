@@ -1,0 +1,10 @@
+{
+  "gate": "GATE-type",
+  "score": null,
+  "threshold": null,
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "no typed source files in scope; either add scope.paths to .build-anything.json OR confirm atom uses untyped language (eg plain JS/JSON)",
+  "review_required": true,
+  "timestamp": "2026-05-26T08:57:03Z"
+}

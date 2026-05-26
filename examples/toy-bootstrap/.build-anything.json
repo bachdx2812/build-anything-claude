@@ -1,0 +1,26 @@
+{
+  "schema": "build-anything-v8.1",
+  "scope": {
+    "mode": "bootstrap",
+    "bootstrap_glob": ["src"]
+  },
+  "stack": {
+    "dir": "src",
+    "lang": "node",
+    "test_cmd": "echo skip",
+    "lint_cmd": "echo skip",
+    "type_cmd": "echo skip"
+  },
+  "backend": {
+    "dir": "src",
+    "lang": "node"
+  },
+  "frontend": {
+    "dir": "frontend"
+  },
+  "gates": {
+    "coverage_min": 80,
+    "mutation_min": 60,
+    "performance": { "p95_max_ms": 50 }
+  }
+}

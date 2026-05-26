@@ -1,0 +1,10 @@
+{
+  "testRunner": "command",
+  "commandRunner": { "command": "npm test" },
+  "mutate": ["routes/*.js", "server.js", "db.js"],
+  "reporters": ["json","clear-text"],
+  "jsonReporter": { "fileName": "reports/mutation/.stryker-tmp.json" },
+  "timeoutMS": 30000,
+  "concurrency": 2,
+  "logLevel": "warn"
+}

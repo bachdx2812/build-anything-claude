@@ -1,0 +1,8 @@
+{
+  "witness": "cosign-key",
+  "witnessed_at": "2026-05-26T09:13:13Z",
+  "manifest_sha256": "aed0994145269b8f3116b84ebd3f55c4732362d96901818f2f4738832fae0e49",
+  "bundle_file": "manifest.cosign-bundle.json",
+  "method": "cosign sign-blob (private key, v3.0.6)",
+  "verify_command": "cosign verify-blob --bundle manifest.cosign-bundle.json --key /Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/.cosign/cosign.pub manifest.sha256"
+}

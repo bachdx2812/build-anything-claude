@@ -1,0 +1,10 @@
+{
+  "gate": "GATE-lint",
+  "score": null,
+  "threshold": null,
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "linter for node produced no valid JSON output (config missing or runtime error); reviewer must add lint config OR justify",
+  "review_required": true,
+  "timestamp": "2026-05-26T08:57:03Z"
+}

@@ -1,0 +1,8 @@
+{
+  "gate": "GATE-18c",
+  "passed": true,
+  "verdict": "PASS",
+  "evidence": {"scenarios_run":1,"failed":0,"results":[{"name":"chaos_after_insert","inject_point":"after_insert_before_items","http_code":"200","pre_rows":0,"post_rows":0,"invariant_ok":true,"rollback_ok":true,"passed":true,"reason":""}]},
+  "ran_at": "2026-05-26T07:54:13Z",
+  "project": "toy-project"
+}
