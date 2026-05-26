@@ -1,0 +1,18 @@
+{
+  "name": "build-anything-claude",
+  "version": "8.1.0",
+  "description": "UBS v8.1 — mechanical evidence over agent narration. 28-gate orchestrator + cryptographic witness for Claude Code.",
+  "owner": {
+    "name": "bachdx2812"
+  },
+  "plugins": [
+    {
+      "name": "build-anything",
+      "description": "15-stage atomic build pipeline (spec → red-team → build → mechanical gates → backend integrity → cloud/prod reality → security → arch → patterns → adversarial review → perf+obs → evidence bundle → prod-verify). Anti-vacuous-PASS, cosign-signed manifest.",
+      "version": "8.1.0",
+      "source": "./plugins/build-anything",
+      "category": "development",
+      "keywords": ["ubs", "evidence", "gates", "mutation-testing", "cosign", "law-17", "anti-devin"]
+    }
+  ]
+}

@@ -5,7 +5,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
-SKILL_SRC="$REPO_ROOT/skill"
+SKILL_SRC="$REPO_ROOT/plugins/build-anything"
 SKILL_DST_DIR="$HOME/.claude/skills"
 SKILL_DST="$SKILL_DST_DIR/build-anything"
 

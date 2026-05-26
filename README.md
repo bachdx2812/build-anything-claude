@@ -26,27 +26,34 @@ Result: a tamper-evident bundle that proves *this specific code* passed *these s
 
 ## Install
 
+### Recommended — Claude Code plugin marketplace
+
+In any Claude Code session:
+
+```
+/plugin marketplace add bachdx2812/build-anything-claude
+/plugin install build-anything@build-anything-claude
+```
+
+After install, the skill activates with:
+
+```
+/build-anything
+```
+
+That's it — Claude Code clones the repo, reads `.claude-plugin/marketplace.json`, and wires `plugins/build-anything/SKILL.md` into your skill registry. Update later with `/plugin update build-anything@build-anything-claude`.
+
+### Alternative — symlink install (manual)
+
+If you prefer not to use the marketplace command:
+
 ```bash
 git clone git@github.com:bachdx2812/build-anything-claude.git
 cd build-anything-claude
 ./install.sh
 ```
 
-That symlinks `skill/` into `~/.claude/skills/build-anything/`. After install, in any Claude Code session:
-
-```
-/build-anything
-```
-
-The skill activates and inspects your repo (or scaffolds a new one).
-
-### Manual install
-
-If you prefer not to symlink:
-
-```bash
-cp -R skill/ ~/.claude/skills/build-anything/
-```
+That symlinks `plugins/build-anything/` into `~/.claude/skills/build-anything/`.
 
 ### Required tools (host machine)
 
@@ -67,6 +74,14 @@ npm install -g madge dependency-cruiser @stryker-mutator/core stryker-cli c8
 ---
 
 ## Update
+
+### Marketplace install
+
+```
+/plugin update build-anything@build-anything-claude
+```
+
+### Symlink install
 
 ```bash
 cd build-anything-claude
@@ -164,24 +179,27 @@ All 13 caught **by real tools**, not stubs. The `manifest.cosign-bundle.json` in
 build-anything-claude/
 ├── README.md                          ← you are here
 ├── LICENSE
-├── install.sh                         ← symlinks skill/ → ~/.claude/skills/build-anything/
+├── install.sh                         ← fallback symlink installer
+├── .claude-plugin/
+│   └── marketplace.json               ← Claude Code plugin manifest
 ├── docs/                              ← UBS v8.1 spec (the philosophy)
 │   ├── ubs-v8-1.md                    ← core spec (17 Laws + 28 Gates)
 │   ├── ubs-v8-1-pitch.md              ← exec summary
 │   ├── ubs-v8-1-technical-hardening.md
 │   └── ubs-v8-1-production-reality.md
-├── skill/                             ← the executable skill
-│   ├── SKILL.md
-│   ├── references/                    ← knowledge files loaded on demand
-│   ├── scripts/                       ← 28 gate scripts + orchestrator + witness
-│   │   ├── orchestrator/run-all-gates.sh
-│   │   ├── orchestrator/witness-sign.sh
-│   │   ├── mechanical/                ← lint, type, coverage, mutation, bundle, lighthouse, load, obs, property
-│   │   ├── security/                  ← secret-scan, sql-injection, architecture-bridge
-│   │   ├── backend/                   ← invariant, idempotency, concurrency, tx, bgjob, audit, authz, tenant, contract, cache, ratelimit
-│   │   └── cloud/                     ← iac-drift, ci-seal, deploy-runbook, slo, scaling
-│   ├── sub-skills/                    ← composable skill steps (spec, build, verify, review, evidence, …)
-│   └── templates/                     ← config + spec + tracker templates + .gitleaks.toml
+├── plugins/
+│   └── build-anything/                ← the executable skill
+│       ├── SKILL.md
+│       ├── references/                ← knowledge files loaded on demand
+│       ├── scripts/                   ← 28 gate scripts + orchestrator + witness
+│       │   ├── orchestrator/run-all-gates.sh
+│       │   ├── orchestrator/witness-sign.sh
+│       │   ├── mechanical/            ← lint, type, coverage, mutation, bundle, lighthouse, load, obs, property
+│       │   ├── security/              ← secret-scan, sql-injection, architecture-bridge
+│       │   ├── backend/               ← invariant, idempotency, concurrency, tx, bgjob, audit, authz, tenant, contract, cache, ratelimit
+│       │   └── cloud/                 ← iac-drift, ci-seal, deploy-runbook, slo, scaling
+│       ├── sub-skills/                ← composable skill steps (spec, build, verify, review, evidence, …)
+│       └── templates/                 ← config + spec + tracker templates + .gitleaks.toml
 └── examples/
     ├── seeded-bugs.md
     ├── toy-project/                   ← atom-on-existing example
