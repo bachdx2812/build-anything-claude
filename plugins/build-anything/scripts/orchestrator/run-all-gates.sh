@@ -17,6 +17,7 @@ BACK_DIR="$SCRIPT_DIR/../backend"
 CLOUD_DIR="$SCRIPT_DIR/../cloud"
 SPEC_DIR="$SCRIPT_DIR/../spec"
 UIUX_DIR="$SCRIPT_DIR/../gate-ui-ux"
+IMPL_DIR="$SCRIPT_DIR/../implementer"
 source "$MECH_DIR/_common.sh"
 
 ATOM_DIR=""
@@ -121,12 +122,16 @@ GATES=(
   "cloud-slo::$CLOUD_DIR/slo-availability-test.sh::gate-cloud/slo-availability.json"
   "cloud-scaling::$CLOUD_DIR/scaling-proof-test.sh::gate-cloud/scaling-proof.json"
   "spec-pfc::$SPEC_DIR/product-feature-coverage.sh::gate-spec/product-feature-coverage.json"
+  "spec-stack::$SPEC_DIR/stack-fitness-check.sh::gate-spec/stack-fitness.json"
+  "spec-prod-design::$SPEC_DIR/production-design-gate.sh::gate-spec/prod-design.json"
+  "spec-bmad-prd::$SPEC_DIR/bmad-prd-gate.sh::gate-spec/bmad-prd.json"
+  "impl-coverage::$IMPL_DIR/implementer-coverage-gate.sh::gate-impl/coverage.json"
   "ui-uiux::$UIUX_DIR/audit.sh::gate-ui-ux/ui-audit.json"
 )
 
 contains() { local x="$1"; shift; for e in "$@"; do [[ "$e" == "$x" ]] && return 0; done; return 1; }
 
-mkdir -p "$ATOM_DIR/gate-mechanical" "$ATOM_DIR/gate-security" "$ATOM_DIR/gate-backend" "$ATOM_DIR/gate-cloud" "$ATOM_DIR/gate-spec" "$ATOM_DIR/gate-ui-ux"
+mkdir -p "$ATOM_DIR/gate-mechanical" "$ATOM_DIR/gate-security" "$ATOM_DIR/gate-backend" "$ATOM_DIR/gate-cloud" "$ATOM_DIR/gate-spec" "$ATOM_DIR/gate-ui-ux" "$ATOM_DIR/gate-impl"
 
 RAN=0
 SKIPPED=0
@@ -172,7 +177,7 @@ log_step orchestrator "ran=$RAN skipped=$SKIPPED — aggregating manifest"
 MANIFEST="$ATOM_DIR/manifest.json"
 ATOM_NAME=$(basename "$ATOM_DIR")
 GATE_FILES=()
-for d in gate-mechanical gate-security gate-backend gate-cloud gate-spec gate-ui-ux; do
+for d in gate-mechanical gate-security gate-backend gate-cloud gate-spec gate-ui-ux gate-impl; do
   if [[ -d "$ATOM_DIR/$d" ]]; then
     for f in "$ATOM_DIR/$d"/*.json; do
       [[ -f "$f" ]] && GATE_FILES+=("$f")

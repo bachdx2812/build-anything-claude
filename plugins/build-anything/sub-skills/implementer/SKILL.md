@@ -81,6 +81,41 @@ This sub-skill spawns a fresh implementer subagent (subagent_type `fullstack-dev
 
 The implementer DOES NOT receive: stages 5–11 reviewer prompts. Avoids teaching-to-the-test bias.
 
+## v8.4 BMAD-method multi-persona dispatch
+
+When the atom allowlist spans ≥2 concerns (backend ∧ frontend ∧/∨ cross-concern tests), Stage 4 dispatches three personas in parallel instead of a single fullstack agent. Wall time ≈ max(B, F, T) not B+F+T; each persona's context is fresh, eliminating single-author rationalisation.
+
+**Pre-flight:**
+
+```bash
+bash scripts/implementer/concern-split.sh --atom-dir <dir> --project-root <root>
+```
+
+Writes `{atom_dir}/implementer/concern-split.json` with `mode ∈ {multi-persona, single-persona}` and per-concern `{globs, files, dispatch}`. Uncategorised allowlist entry → exit 1 HALT (LAW-F6: unknown surface is not a vacuous PASS).
+
+**Dispatch:**
+
+- `multi-persona` → dispatch every concern with `dispatch:true` in a single message with multiple Agent calls (parallel):
+  - Dev-Backend: prompt = `references/personas/dev-backend-persona.md` + atom_dir + allowlist subset + test runner
+  - Dev-Frontend: same shape, persona = `dev-frontend-persona.md`, also given `architecture.md#API surface` as contract
+  - Dev-Tests: same shape, persona = `dev-tests-persona.md`, also given `intent/verdict.json.core_flows[]` as mandatory test coverage
+- `single-persona` → one `fullstack-developer` agent (legacy behaviour preserved).
+
+Each persona writes `{atom_dir}/implementer/{concern}-status.json` on exit with `{verdict, files_changed, commits, core_flows_covered (tests only)}`.
+
+**Post-flight (GATE-IMPL):**
+
+```bash
+bash scripts/implementer/implementer-coverage-gate.sh --atom-dir <dir> --project-root <root>
+```
+
+Verifies dispatch invariants: every dispatched persona left a status report; `files_changed ⊆ allowlist_subset`; allowlist subsets pairwise disjoint; `tests-status.core_flows_covered ⊇ intent.core_flows`. Detail in `references/personas/dispatch-instructions.md`. Meta-gate: `scripts/meta/implementer-coverage-test.sh` (7 fixtures).
+
+**When to skip multi-persona:**
+- `--fast` flag → forced single-persona (lower thresholds, less ceremony).
+- Single-file atom (< 50 LOC bug fix) → forced single-persona (persona overhead > work).
+- One concern dispatchable (e.g. backend-only refactor) → naturally single-persona.
+
 ## Tools Used
 
 - Skill tool to spawn implementer subagent

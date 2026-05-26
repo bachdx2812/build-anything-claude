@@ -25,6 +25,10 @@ Stage 0.1 forces a structured intent declaration with explicit user verification
 | `declared.success_criteria[]` | 2-5 mechanically-checkable acceptance signals |
 | `declared.out_of_scope[]` | Explicit non-goals so reviewers can spot scope creep |
 | `declared.constraints[]` | Hard constraints (stack, budget, deadline, compliance) |
+| `declared.scale_tier` *(v8.5)* | `mvp` (≤1K DAU) / `growth` (1K-100K) / `scale` (100K-10M) / `hyperscale` (>10M). Drives Stage 1.D GATE-STACK tier-row selection AND Stage 1.B Architect persona capacity model. |
+| `declared.cost.monthly_usd_ceiling` *(v8.5)* | Integer USD. Stack-fitness gate refuses stacks whose estimated infra cost exceeds this. |
+| `declared.team.size` *(v8.5)* | Integer. Team-fitness check refuses architectures whose ops surface exceeds team capacity (e.g. solo + 5 microservices = HALT). |
+| `declared.team.ops_maturity` *(v8.5)* | `solo` / `small` / `medium` / `enterprise`. Drives observability + deployment topology requirements in production-design.md. |
 | `ambiguities[]` | Open questions to ask the user. Cleared as user answers |
 | `history[]` | Append-only log of {iter, change, source: "user"|"agent"} |
 
@@ -63,6 +67,10 @@ Start from 100 and subtract:
 | Contradiction in stated facts | -25 per contradiction |
 | Out-of-scope unspecified for a fuzzy product type | -10 |
 | Constraints unspecified for time/cost/stack-sensitive builds | -10 |
+| `scale_tier` empty *(v8.5)* | -20 |
+| `cost.monthly_usd_ceiling` empty *(v8.5)* | -15 |
+| `team.size` empty *(v8.5)* | -10 |
+| `team.ops_maturity` empty *(v8.5)* | -10 |
 
 Floor at 0. Result is what gets written to `confidence` field. **Do not inflate: a higher score does not get you to Stage 1 faster — it gets you a worse build.**
 

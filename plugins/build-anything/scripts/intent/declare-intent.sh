@@ -74,7 +74,16 @@ if [[ ! -f "$STATE" ]]; then
     "core_flows": [],
     "success_criteria": [],
     "out_of_scope": [],
-    "constraints": []
+    "constraints": [],
+    "scale_tier": null,
+    "cost": {
+      "monthly_usd_ceiling": null,
+      "currency": "USD"
+    },
+    "team": {
+      "size": null,
+      "ops_maturity": null
+    }
   },
   "ambiguities": [],
   "history": []
@@ -99,6 +108,10 @@ DECL_PRODUCT=$(jq -r '.declared.product_type // empty' "$STATE")
 DECL_USER=$(jq -r '.declared.primary_user // empty' "$STATE")
 DECL_FLOWS=$(jq -r '.declared.core_flows | length' "$STATE")
 DECL_SUCCESS=$(jq -r '.declared.success_criteria | length' "$STATE")
+DECL_TIER=$(jq -r '.declared.scale_tier // empty' "$STATE")
+DECL_COST=$(jq -r '.declared.cost.monthly_usd_ceiling // empty' "$STATE")
+DECL_TEAM_SIZE=$(jq -r '.declared.team.size // empty' "$STATE")
+DECL_TEAM_OPS=$(jq -r '.declared.team.ops_maturity // empty' "$STATE")
 
 if [[ -z "$DECL_PRODUCT" ]]; then
   PROBE_AMBIG+=('{"field":"product_type","question":"What is the product type? (e.g. youtube-clone, todo-app, internal-tool — match feature-catalog.json if possible)","required":true}')
@@ -111,6 +124,22 @@ if [[ "$DECL_FLOWS" -lt 1 ]]; then
 fi
 if [[ "$DECL_SUCCESS" -lt 1 ]]; then
   PROBE_AMBIG+=('{"field":"success_criteria","question":"How will we know the build is done? List 2-5 mechanically-checkable success criteria.","required":true}')
+fi
+# v8.5 — scale-tier + cost-envelope + team-fitness probes.
+# These drive Stage 1.D GATE-STACK and Stage 1.B Architect persona's
+# production-design.md. Without them the build defaults to MVP-mindset
+# stacks even for product types where "MVP" means "dies on launch day".
+if [[ -z "$DECL_TIER" ]]; then
+  PROBE_AMBIG+=('{"field":"scale_tier","question":"What scale tier? Choose ONE: mvp (≤1K DAU, demo / launch), growth (1K-100K DAU, post-PMF), scale (100K-10M DAU, multi-region), hyperscale (>10M DAU, global). This drives stack + architecture requirements; picking wrong = over- or under-engineered.","required":true}')
+fi
+if [[ -z "$DECL_COST" ]]; then
+  PROBE_AMBIG+=('{"field":"cost.monthly_usd_ceiling","question":"Monthly cost ceiling in USD? Integer. The stack-fitness gate refuses stacks whose estimated infrastructure cost exceeds this. Be honest — declaring $100 for a youtube-clone forces SQLite+local-disk, which then fails GATE-STACK as toy.","required":true}')
+fi
+if [[ -z "$DECL_TEAM_SIZE" ]]; then
+  PROBE_AMBIG+=('{"field":"team.size","question":"Engineering team size (integer; just devs who will operate this). The team-fitness check refuses architectures whose ops surface exceeds team capacity — e.g. solo engineer + Kubernetes + 5 microservices = HALT.","required":true}')
+fi
+if [[ -z "$DECL_TEAM_OPS" ]]; then
+  PROBE_AMBIG+=('{"field":"team.ops_maturity","question":"Ops maturity: solo (1 eng, no on-call), small (2-5, business hours), medium (6-20, 24/7 on-call), enterprise (>20, dedicated SRE). Drives observability + deployment topology requirements.","required":true}')
 fi
 
 # Merge probe into state's ambiguities — but do NOT clobber LLM-added ones.
@@ -155,15 +184,25 @@ elif [[ "$ITER" -ge "$MAX_ITER" ]]; then
 fi
 
 # Vacuous-PASS guard: if PASS but core fields still null, force HALT.
+# v8.5 — scale_tier + cost + team are also gate-blocking. Without them every
+# downstream gate makes assumptions the spec author never validated.
 if [[ "$NEXT_ACTION" == "READY" ]]; then
   PT=$(jq -r '.declared.product_type // empty' "$STATE")
   PU=$(jq -r '.declared.primary_user // empty' "$STATE")
   FL=$(jq -r '.declared.core_flows | length' "$STATE")
   SC=$(jq -r '.declared.success_criteria | length' "$STATE")
+  TIER=$(jq -r '.declared.scale_tier // empty' "$STATE")
+  COST=$(jq -r '.declared.cost.monthly_usd_ceiling // empty' "$STATE")
+  TSIZE=$(jq -r '.declared.team.size // empty' "$STATE")
+  TOPS=$(jq -r '.declared.team.ops_maturity // empty' "$STATE")
   if [[ -z "$PT" || -z "$PU" || "$FL" -lt 1 || "$SC" -lt 1 ]]; then
     NEXT_ACTION="HALT"
     PASSED="false"
     NA_REASON="LAW-F6 GUARD: confidence ≥ threshold but core fields still empty — score is vacuous"
+  elif [[ -z "$TIER" || -z "$COST" || -z "$TSIZE" || -z "$TOPS" ]]; then
+    NEXT_ACTION="HALT"
+    PASSED="false"
+    NA_REASON="LAW-F6 GUARD v8.5: scale_tier/cost.monthly_usd_ceiling/team.size/team.ops_maturity missing — downstream gates would silently default to MVP-mindset"
   fi
 fi
 
@@ -181,7 +220,7 @@ jq -n \
   --slurpfile state "$STATE" \
   '{
     gate: $gate,
-    schema_version: "ubs-v8.3-intent",
+    schema_version: "ubs-v8.5-intent",
     iter: $iter,
     max_iter: $maxiter,
     confidence: $conf,

@@ -176,9 +176,13 @@ When body is empty, gate MUST emit `verdict: "N/A_PENDING_REVIEWER"` (passed: nu
 
 ### B.4 Product + UI gates
 
+- **GATE-PRD PRD / ARCHITECTURE / UX ARTEFACT BODY (v8.4)** — Stage 1.B BMAD-method enforcement. Three personas (PM, Architect, UX) dispatched in parallel via Claude Code Task tool from prompt files under `sub-skills/spec/references/personas/`. Each persona owns a single artefact (`prd.md`, `architecture.md`, `ux-spec.md`) with mandatory sections + body lines. FAIL if any required section header has no content following it (LAW-F6 applied at spec layer: a stub header is never a PASS). Fast mode allows single-persona combined `prd.md`. Method-not-invocation: the optional `npx bmad-method install` is informational; `npx bmad-method run` does NOT exist. Script: `spec/bmad-prd-gate.sh`. Detail: §U.
 - **GATE-PFC PRODUCT FEATURE COVERAGE** — `declared.product_type` matches a feature-catalog row; every catalog-required feature is present in `success_criteria[]`. Catches "YouTube clone with no upload" class of spec failure. Script: `spec/product-feature-coverage.sh`.
+- **GATE-STACK STACK FITNESS (v8.4 → v8.5)** — declared `stack.*` block in atom brief satisfies every `required_capabilities[]` row in the catalog for the matched product type. Each capability has `accept_values`, `disqualified_values`, `disqualified_packages`, optional `disqualified_schema_columns`. FAIL when a serious product (e.g. `youtube-clone`) declares a toy stack (e.g. `better-sqlite3` + `multer`-to-local-disk + no transcoder + no CDN). Catches "YouTube clone on a laptop that cannot serve a second concurrent upload" class of spec failure — the v8.3 hole. Fuzzy match: `youtube-clone-mvp` → `youtube-clone`. **v8.5 tier-aware:** when `intent.declared.scale_tier` is set, the catalog row `scale_tiers[<tier>]` is used instead of the flat `stack_fitness` block; required capabilities, disqualified packages, cost band, team size cap and ops-maturity floor all escalate per tier. Additional tier-alignment FAIL conditions: (a) `cost.monthly_usd_ceiling < cost_band.min_usd_month` (under-budgeted for tier), (b) `team.size > team_size_max` (tier under-sized for org — pick higher tier), (c) `team.ops_maturity` below `ops_maturity_floor` (team cannot operate this tier). Script: `spec/stack-fitness-check.sh`. Exempt from `--fast`. Detail: §T (v8.4 base) + §W (v8.5 tier dimension).
+- **GATE-PROD-DESIGN PRODUCTION DESIGN (v8.5)** — Stage 1.D enforcement of architect persona's `production-design.md`. Verifies eight required sections present with body content + min-content rules: (1) `Capacity model` body MUST contain digits (no adjective-only capacity claims), (2) `Failure modes` table MUST have ≥3 data rows, (3) `Tenancy model` body present, (4) `Data lifecycle` body present, (5) `SLO targets` body MUST contain `p95` and (`%` or `availability`), (6) `Deployment topology` body present, (7) `Observability story` body present, (8) `Boring-tech justification` body present. FAIL on any missing section or content rule; N/A_PENDING_REVIEWER if the file is absent (architect persona not yet run for the atom). Catches "shipped an MVP-thinking architecture dressed as a production design" — the v8.4 hole where no capacity numbers were ever written down. Script: `spec/production-design-gate.sh`. Exempt from `--fast`. Detail: §W.
 - **GATE-UIUX UI/UX AUDIT** — design system compliance + a11y minimum + keyboard navigation + focus management. Runs only if atom touches FE surface. Script: `gate-ui-ux/audit.sh`.
 - **GATE-25-E2E END-TO-END** — Playwright / Cypress journey covering the declared `core_flows[]`. Required for any atom touching the FE+BE seam.
+- **GATE-IMPL BMAD-METHOD STAGE-4 COVERAGE (v8.4)** — Stage 4 BUILD enforcement. Partitions the atom allowlist into `{backend, frontend, tests}` concerns via `scripts/implementer/concern-split.sh` (concern-split.json). Dispatches up to three personas (Dev-Backend, Dev-Frontend, Dev-Tests) in parallel via Claude Code Task tool from prompt files under `sub-skills/implementer/references/personas/`. FAIL if (a) any dispatched persona left no `*-status.json`; (b) any persona's `files_changed[]` is not a subset of its allowlist subset; (c) persona allowlist subsets overlap (file in two personas → merge conflict); (d) `tests-status.core_flows_covered[]` is missing any entry from `intent/verdict.json.core_flows[]`. When atom does not reach Stage 4 → `N/A_PENDING_REVIEWER`, not ERROR. Single-file atoms or `--fast` collapse to single-persona; the gate still enforces files-changed ⊆ allowlist. Script: `implementer/implementer-coverage-gate.sh`. Detail: §V.
 
 > **N/A rule:** if a gate's required config is absent in `.build-anything.json`, the script writes `verdict: "N/A_PENDING_REVIEWER"` and exits 0. Reviewer MUST justify the N/A or HALT. See **§F**.
 
@@ -348,13 +352,14 @@ If any downstream stage reads a field that was null in the frozen verdict, the o
 ```
 Stage 0     Pre-flight                    config + automation level + budget
 Stage 0.1   INTENT DECLARATION            LAW-CL-95 loop until READY
-Stage 0.5   Deps bootstrap                research / uiux / bmad sub-skills primed
+Stage 0.5   Deps bootstrap                research / uiux primed (bmad informational, v8.4)
 Stage 1.A   Research                      ck:research per product_type
-Stage 1.B   Spec Atom + PRD               BMAD agents
+Stage 1.B   Spec Atom + PRD + GATE-PRD    BMAD-method personas (PM + Architect + UX) dispatched via Task tool; architect emits architecture.md + production-design.md (v8.5)
 Stage 1.C   GATE-PFC                      feature catalog coverage
+Stage 1.D   GATE-STACK + GATE-PROD-DESIGN stack fitness (tier-aware v8.5) + production-design.md content rules (v8.5)
 Stage 2     Schema / Service              OpenAPI + DDL + invariants.sql
 Stage 3     Red-team Spec                 spec-attacker pre-check
-Stage 4     Build (L3)                    implementer in allowlist
+Stage 4     Build (L3) + GATE-IMPL        implementer BMAD-method personas (Dev-Backend + Dev-Frontend + Dev-Tests) dispatched via Task tool (v8.4)
 Stage 5     Mechanical Gates              GATE-10/11/16 + GATE-25-E2E
 Stage 6     Backend Integrity             GATE-18a..f, 19, 20, 21, 23, 24
 Stage 6.5   Cloud / Prod Reality          GATE-22, 25-deploy, 26, 27, 28
@@ -849,6 +854,485 @@ Devin still cannot self-approve a production write — LAW-10 covers that. This 
 | "Evidence is real" | LAW-17 cosign signature with `witness_class != "PLACEHOLDER_NOT_FOR_PROD"` |
 
 Every row's evidence is a single shell script that returns an integer. The reviewer does not have to trust the claim; the reviewer runs the script.
+
+---
+
+## Section T — Stack Fitness (v8.4 — GATE-STACK)
+
+### T.1 The gap v8.4 closes
+
+v8.2 introduced GATE-PFC to stop "YouTube clone with no upload" — the feature list was being silently truncated. GATE-PFC checks that the **features** in the spec match the canonical feature catalog for the declared product type.
+
+v8.2 did NOT check that the **stack** in the spec can physically serve those features at scale. Concrete v8.3 audit finding: an atom declared product_type `youtube-clone-mvp` with feature `video upload`, then declared a stack of `Node 20 + Express + better-sqlite3 + multer-to-local-disk` with no transcoder, no CDN, no object store, no streaming protocol. All feature-coverage tests passed because they stubbed the upload pipeline. Every downstream gate (mechanical, backend, security, perf) passed locally. Manifest sealed. Witness signed. Boss sees green.
+
+Real-world result: the binary cannot serve a second concurrent upload, cannot survive a single SSD failure, cannot transcode, cannot ship video at internet scale. The product was "shippable" only in a context the user does not actually live in.
+
+Root cause: spec layer never reconciled the feature catalog with the **infrastructure capabilities** required to serve those features at the product type's expected scale. The verification stack is rigorous but locally scoped; locally a stub upload looks identical to a real upload.
+
+GATE-STACK closes this by asserting at the **spec layer**, before code is written, that the declared stack covers the **capabilities** required for the product type.
+
+### T.2 The capability model
+
+A *capability* is a named requirement that the running system must satisfy. Capabilities are infrastructural, not algorithmic — they answer "what kind of thing has to be in the stack" rather than "what does the code do".
+
+Catalog file: `~/.claude/skills/build-anything/scripts/spec/feature-catalog.json`, key `_stack_fitness_capabilities`. Each capability has:
+
+```jsonc
+{
+  "blob_object_store": {
+    "satisfies_keys": ["stack.media_storage", "stack.object_store"],
+    "accept_values":   ["s3","gcs","r2","azure-blob","minio","ceph"],
+    "disqualified_values": ["local-disk","tmpfs","node-fs","multer-disk"],
+    "disqualified_packages": ["multer"],
+    "rationale": "Local-disk uploads do not survive horizontal scaling, container restart, or geo-failover. Object store is required for any media product."
+  }
+}
+```
+
+`satisfies_keys` — the atom-brief / `.build-anything.json` paths the gate consults to find a declared value.
+`accept_values` — values that satisfy the capability.
+`disqualified_values` — values that are NEVER acceptable for this capability, regardless of context.
+`disqualified_packages` — package-manifest entries (`package.json`, `requirements.txt`, `go.mod`, `Cargo.toml`) that, if present, indicate the disqualified pattern.
+`disqualified_schema_columns` — SQL column patterns that, if found in any migration / DDL, indicate the disqualified pattern (e.g. `video_blob BYTEA` for the blob capability — storing binary in a relational table is disqualified).
+
+### T.3 Per-product-type required capabilities
+
+The `stack_fitness.required_capabilities[]` list per product type encodes "what infra MUST exist for this product to be shippable at the scale implied by the name". Excerpt:
+
+| Product type | Required capabilities |
+|--------------|------------------------|
+| `youtube-clone` | `blob_object_store`, `transcode_worker`, `cdn`, `media_streaming_protocol`, `relational_db_concurrent_writer` |
+| `twitter-clone` | `relational_db_concurrent_writer`, `fanout_queue`, `cache_layer` |
+| `instagram-clone` | `blob_object_store`, `image_thumbnail_pipeline`, `cdn`, `relational_db_concurrent_writer`, `cache_layer` |
+| `amazon-clone` | `relational_db_concurrent_writer`, `payment_processor`, `idempotency_store`, `search_index` |
+| `uber-clone` | `relational_db_concurrent_writer`, `geo_index`, `realtime_transport`, `payment_processor`, `idempotency_store` |
+| `chat-app` | `relational_db_concurrent_writer`, `realtime_transport`, `notification_pipeline` |
+| `airbnb-clone` | `relational_db_concurrent_writer`, `payment_processor`, `idempotency_store`, `search_index`, `blob_object_store` |
+| `blog-platform` | `relational_db_concurrent_writer`, `cache_layer` |
+| `todo-app` | (empty — trivially passes) |
+
+Empty list ≠ vacuous PASS. The gate still records `verdict: N/A_PENDING_REVIEWER` if the product type is novel (not in catalog) so a reviewer must justify.
+
+### T.4 The gate script
+
+`scripts/spec/stack-fitness-check.sh` runs at Stage 1.D, after GATE-PFC. Algorithm:
+
+```
+1. Read product_type from intent/verdict.json (fallback: PFC verdict).
+2. Resolve catalog key:
+   - exact match → use it
+   - strip suffix -mvp/-lite/-basic/-prototype/-poc/-demo/-toy/-simple/-minimal/-vN
+   - prefix overlap against catalog keys (≥ 1 shared token)
+3. Load stack_fitness.required_capabilities[] for the catalog key.
+4. For each required capability:
+   for each satisfies_key:
+     declared = lookup(atom-brief, .build-anything.json, satisfies_key)
+     if declared in accept_values and not in disqualified_values → cap_satisfied = true
+   scan package.json / requirements.txt / go.mod / Cargo.toml for disqualified_packages
+   scan *.sql / migrations/* for disqualified_schema_columns
+   if cap_satisfied = false → missing_capabilities += capability
+   if any disqualified signal → disqualified_violations += {capability, kind, value}
+5. verdict:
+   - both lists empty AND product_type in catalog → PASS
+   - either list non-empty → FAIL
+   - product_type NOT in catalog → N/A_PENDING_REVIEWER
+6. Write {atom_dir}/gate-spec/stack-fitness.json with verdict + lists + confidence + ambiguities.
+```
+
+Confidence = 100 when verdict resolves cleanly; lower when fuzzy match is uncertain (with ambiguities listing the resolution path so reviewer can override).
+
+### T.5 Worked example — the v8.3 audit failure
+
+Input atom brief from the audited build:
+```yaml
+product_type: youtube-clone-mvp
+stack:
+  language: node
+  database: sqlite                # better-sqlite3
+  media_storage: local-disk       # multer dest: 'uploads/'
+  # no transcode, no cdn, no streaming_protocol
+```
+
+Gate output:
+```json
+{
+  "gate": "GATE-STACK",
+  "verdict": "FAIL",
+  "product_type_declared": "youtube-clone-mvp",
+  "catalog_key_resolved": "youtube-clone",
+  "missing_capabilities": [
+    "blob_object_store",
+    "transcode_worker",
+    "cdn",
+    "media_streaming_protocol",
+    "relational_db_concurrent_writer"
+  ],
+  "disqualified_violations": [
+    { "capability": "blob_object_store",
+      "kind": "disqualified_package",
+      "value": "multer",
+      "rationale": "multer-to-local-disk does not survive horizontal scaling" },
+    { "capability": "relational_db_concurrent_writer",
+      "kind": "disqualified_package",
+      "value": "better-sqlite3",
+      "rationale": "SQLite is single-writer; cannot serve concurrent uploads/views" }
+  ],
+  "confidence": 100,
+  "ambiguities": []
+}
+```
+
+Five missing capabilities, two explicit disqualifying packages. The atom HALTs at Stage 1.D. The author either declares an honest stack (`s3` + `ffmpeg-worker` + `cloudfront` + `hls` + `postgres-15`) or admits the product is not `youtube-clone` and renames it (e.g. `local-video-demo` — which the catalog would correctly treat as novel → `N/A_PENDING_REVIEWER` and require reviewer justification).
+
+### T.6 Why this is at the spec layer, not the build layer
+
+It is tempting to push stack fitness into a later gate — "if the load test passes at peak_vu, the stack is fine". Two reasons that does not work:
+
+1. **Load tests are local.** GATE-28 runs k6 against staging. Staging is a single box with a single user. p95 looks great. The stack misfit only manifests at fan-out — concurrent uploads, geo-distributed playback, transcode queue depth, CDN cache fill. None of those exist in the verification environment.
+2. **Code written against a toy stack does not adapt to a real stack.** If `multer` is in `package.json` for Stage 4, the upload route is written against multer's API. Swapping to S3 multipart upload is a rewrite, not a config change. Catching this at Stage 1.D forbids the wrong commit before it is made.
+
+The cost of catching this at spec is one JSON-file edit. The cost of catching it at prod is a rewrite plus an outage.
+
+### T.7 Extending the catalog
+
+Reviewers MAY add product types and capabilities as encountered. Procedure:
+
+1. Add the product type to `feature-catalog.json` with `must_have[]` (features) AND `stack_fitness.required_capabilities[]` (infra).
+2. If a new capability is needed, add it to `_stack_fitness_capabilities` with `satisfies_keys`, `accept_values`, `disqualified_values`, `disqualified_packages`, optional `disqualified_schema_columns`, and a one-line `rationale`.
+3. Add a meta-gate regression: feed a known-toy stack against the new product type, assert FAIL. See `scripts/meta/stack-fitness-test.sh`.
+
+Catalog edits are not free: every accepted value carries a downstream maintenance cost (gate authors must know what `redis` vs `memcached` means for `cache_layer`). Prefer narrow `accept_values` over permissive lists; the gate's value is in the disqualifications, not in the approvals.
+
+### T.8 Boss-facing summary
+
+| Question | Answer |
+|----------|--------|
+| What was broken before v8.4? | Spec could declare a serious product (`youtube-clone`) on a toy stack (`sqlite + multer + no CDN`), and every downstream gate would pass because tests stubbed the bottleneck. |
+| What does GATE-STACK do? | Compares declared stack to a per-product-type list of required infra capabilities. Hard-fails the spec stage if any capability is missing or any disqualifying pattern is found. |
+| Where is the catalog? | `~/.claude/skills/build-anything/scripts/spec/feature-catalog.json`, `_stack_fitness_capabilities` + per-product `stack_fitness.required_capabilities[]`. |
+| Why isn't a load test enough? | Load tests run locally against staging; the misfit manifests only at fan-out scale which staging cannot reproduce. |
+| Is the gate exempt from `--fast`? | Yes. Fast mode lowers confidence thresholds; it does not allow toy stacks for serious products. |
+| What does FAIL look like? | JSON listing `missing_capabilities[]` (what's absent) and `disqualified_violations[]` (what's positively wrong), so the author knows exactly what to swap. |
+
+---
+
+## Section U — BMAD-method dispatch (v8.4 — GATE-PRD)
+
+### U.1 The gap v8.4 also closes
+
+A v8.2 audit shipped a "YouTube clone" with NO upload and NO play functions. Stage 1 PASSed because every acceptance criterion was individually testable. v8.2 introduced "BMAD" — multi-persona spec coverage — to surface that single-author spec gap. But v8.2 wired BMAD wrong:
+
+- It referenced `npx bmad-method run --workflow prd` — **that subcommand does not exist** in the BMAD CLI. The CLI ships `install`, `status`, `uninstall` only.
+- `npx bmad-method install` hangs on interactive "Installation directory:" prompts even with `--directory` + `--yes` flags, making it unusable in an automated pipeline.
+
+The v8.4 fix: **method, not invocation.** The skill carries persona prompts internally and dispatches them via the Claude Code Task tool. Wall time is `max(P, A, U)` not `P+A+U`. Each persona starts in a fresh context, so the v8.2 failure mode (single-author bias, cross-pollination of priors) is structurally prevented.
+
+### U.2 Personas and outputs
+
+| Persona | Prompt file | Output | Required sections (header + body line) |
+|---------|-------------|--------|-----------------------------------------|
+| PM | `sub-skills/spec/references/personas/pm-persona.md` | `{atom_dir}/prd.md` | `Vision`, `MVP Scope`, `Acceptance Criteria` (+ `Goals`, `User Personas`, `User Journeys`, `Out-of-Scope`, `Non-functional Requirements` advisory) |
+| Architect | `sub-skills/spec/references/personas/architect-persona.md` | `{atom_dir}/architecture.md` | `Stack`, `Components`, `Data model` (+ `API surface`, `Deployment topology`, `Trade-offs considered`, `Stack-fitness self-check`) |
+| UX | `sub-skills/spec/references/personas/ux-persona.md` | `{atom_dir}/ux-spec.md` | `Page inventory`, `Per-page UX`, `Accessibility` (+ `Key components needed`, `Mobile vs desktop deltas`, `Anti-patterns to avoid`) |
+
+Every required section MUST have ≥1 non-empty line of content immediately after the header. A header with no body = stub = FAIL. Sub-section depth (`###` under `##`) counts as content; same-or-shallower heading ends the section.
+
+### U.3 Dispatch protocol
+
+Detailed in `sub-skills/spec/references/personas/dispatch-instructions.md`. Summary:
+
+1. Confirm Stage 1.A artefact (`research/product-features-*.md`) exists.
+2. Confirm `intent/verdict.json.next_action == "READY"`.
+3. Choose mode: default = `multi-persona` (three Tasks in parallel in a single message); `--fast` = `single-persona` (one Task producing combined `prd.md`); `--strict` = `multi-persona` + red-team review of each artefact.
+4. Dispatch each persona with the contents of its `*-persona.md` file + `{atom_dir}` + `{project_root}` as the prompt.
+5. Run `scripts/spec/bmad-prd-gate.sh --atom-dir {atom_dir} --project-root {project_root}` (mode auto-resolves from artefact presence).
+6. On FAIL: identify which persona's artefact is incomplete (gate's `details.artefacts[].status` field), re-dispatch that single persona with the status as additional context. Max 2 retries per persona before HALT.
+
+### U.4 What is NOT a BMAD dependency anymore
+
+| Item | v8.2 status | v8.4 status |
+|------|-------------|-------------|
+| `npx bmad-method install` | blocking; gate aborted on install failure | informational; `ensure-deps.sh` probes presence only, never installs |
+| `npx bmad-method run` | referenced (incorrectly) | acknowledged non-existent |
+| `_bmad/bmm/agents/*.md` agent files | implicit input | superseded by skill's own persona files |
+| `--no-bmad` flag | required to skip install | default behaviour; flag is a no-op |
+
+### U.5 Meta-gate
+
+`scripts/meta/bmad-prd-test.sh` exercises five fixtures:
+
+1. empty atom → FAIL (LAW-F6 vacuous-PASS guard active).
+2. single-persona PRD with all required sections + body → PASS.
+3. multi-persona (all three artefacts, every required section with body, sub-sections counted as body) → PASS.
+4. PRD with a stub section (header but no body line) → FAIL.
+5. multi-persona where `architecture.md` has a `Data model` header with no body → FAIL.
+
+Wired into `scripts/meta/run-all-meta-gates.sh`. CI / pre-ship runs the runner; any FAIL is a skill regression.
+
+### U.6 Boss-facing summary
+
+| Question | Answer |
+|----------|--------|
+| What does GATE-PRD prevent? | Spec stages that look complete because they have section headers but contain no actual content. The v8.2 failure mode where a "BMAD-blessed" PRD shipped with an empty MVP Scope. |
+| What if the user doesn't want BMAD personas? | `--fast` collapses to single-persona; the gate still enforces `prd.md` section bodies. There is no path that skips PRD body verification. |
+| Why does the npx package not matter anymore? | Two reasons: (1) the `run` subcommand doesn't exist, so v8.2's invocation was always non-functional; (2) the persona prompts and dispatch logic live in this skill — moving them out would re-introduce a versioning / install-flake surface for no benefit. |
+| Where do the personas come from? | `sub-skills/spec/references/personas/{pm,architect,ux}-persona.md` — each is the full prompt that defines the persona's role, inputs, required output structure, rules, and what it MUST NOT do. |
+
+---
+
+## Section V — BMAD-method implementer (v8.4 — GATE-IMPL)
+
+### V.1 The gap v8.4 closes at the BUILD stage
+
+Stage 1.B got the spec-level fix (Section U). But Stage 4 (BUILD) was still a single `fullstack-developer` agent writing backend + frontend + tests in one context. Three failure modes survived:
+
+1. **Single-author bias.** The same context that wrote the backend route rationalises the frontend client around its own first decision. The tests written by the same agent are "teaching to the test" — they cover exactly what the implementer already believed.
+2. **Sequential wall time.** Even when concerns are independent (`backend/upload.ts`, `frontend/Player.tsx`, `e2e/upload.spec.ts`), the single agent writes them in series. Total time ≈ B + F + T.
+3. **Allowlist drift.** One agent with the full atom allowlist may "helpfully" touch a file from another concern without flagging it. The mechanical gates pass, but the architectural boundary intended by the spec is silently violated.
+
+v8.4 applies the same fix at Stage 4 that v8.2 applied at Stage 1.B: **method, not invocation**. Three personas dispatched via Claude Code Task tool in a single message → wall time ≈ max(B, F, T); each persona runs in its own context → no shared rationalisation; each persona is given a strict allowlist subset → boundary violations are caught mechanically.
+
+### V.2 Personas and outputs
+
+| Persona | Prompt file | Allowlist subset typical globs | Status report |
+|---------|-------------|--------------------------------|---------------|
+| Dev-Backend | `sub-skills/implementer/references/personas/dev-backend-persona.md` | `backend/**`, `api/**`, `server/**`, `db/**`, `migrations/**`, `cmd/**`, `internal/**`, `*.go`, `*.py`, `*.rs` | `{atom_dir}/implementer/backend-status.json` |
+| Dev-Frontend | `sub-skills/implementer/references/personas/dev-frontend-persona.md` | `frontend/**`, `web/**`, `client/**`, `ui/**`, `src/components/**`, `src/pages/**`, `*.tsx`, `*.jsx`, `*.vue`, `*.svelte` | `{atom_dir}/implementer/frontend-status.json` |
+| Dev-Tests | `sub-skills/implementer/references/personas/dev-tests-persona.md` | `e2e/**`, `tests/e2e/**`, `playwright/**`, `cypress/**`, `tests/integration/**`, `*.e2e.*` | `{atom_dir}/implementer/tests-status.json` |
+
+Status report contract per persona: `{ persona, verdict ∈ {PASS, PENDING, FAIL}, allowlist_subset[], files_changed[], commits[], core_flows_covered[] (tests only), pending[], ran_at }`.
+
+### V.3 Dispatch protocol
+
+Detailed in `sub-skills/implementer/references/personas/dispatch-instructions.md`. Summary:
+
+1. Confirm Stage 3 (red-team spec) returned PASS.
+2. Run `scripts/implementer/concern-split.sh --atom-dir <dir>` to produce `concern-split.json`. The splitter classifies every allowlist entry:
+   - `is_tests()` matched first (e2e under `app/` is still a test).
+   - then `is_backend()`.
+   - then `is_frontend()`.
+   - uncategorised → exit 1 HALT (LAW-F6: unknown allowlist surface is not a vacuous PASS).
+3. Mode resolution:
+   - `≥2` dispatchable concerns → `multi-persona`.
+   - `1` dispatchable concern OR `--fast` flag OR single-file allowlist → `single-persona`.
+4. Multi-persona: dispatch the relevant personas in a single message with multiple Agent calls so Tasks run concurrently. Single-persona: dispatch one `fullstack-developer` with full allowlist + TDD discipline.
+5. After every dispatched Task returns, run `scripts/implementer/implementer-coverage-gate.sh --atom-dir <dir> --project-root <root>`. This gate verifies:
+   - Every dispatched persona wrote its `*-status.json` report.
+   - Every persona's `files_changed[]` is a subset of its `allowlist_subset[]` (glob→regex translation: `**` → `.*`, `*` → `[^/]*`).
+   - `tests-status.core_flows_covered[]` ⊇ `intent/verdict.json.declared.core_flows[]`.
+   - Persona allowlist subsets are pairwise disjoint (no file in two personas).
+6. On gate FAIL: identify which persona reported `PENDING_*` or which concern is missing coverage (gate's `details.violations[]`). Re-dispatch that single persona with the violations as additional context. Max 2 retries per persona before HALT.
+
+### V.4 Persona overlap rule (critical)
+
+The three personas MUST own disjoint file sets. Two personas with permission to edit `frontend/api-client.ts` will both commit, and the second commit conflicts with the first. `concern-split.sh` enforces:
+
+- Each allowlist file lands in exactly one concern.
+- Ambiguous files (shared `types/api.d.ts` referenced by both BE and FE) → assigned to backend by default with a `cross-concern` flag set. The frontend persona consumes the file read-only.
+- Shared schema types are expected to be generated, not handwritten. If the project handwrites shared types, the Architect persona at Stage 1.B MUST split them into per-concern files. Re-dispatch Stage 1.B if missing.
+
+### V.5 What is NOT GATE-IMPL
+
+| Concern | Where it lives |
+|---------|----------------|
+| Unit tests inside `backend/` | Owned by the Dev-Backend persona inside its allowlist subset, not by Dev-Tests. |
+| TDD red→green commit evidence | Stage 5 mechanical gate inspects commit history; GATE-IMPL only checks files_changed scope. |
+| Playwright `core_flow` coverage | GATE-25-E2E at Stage 5 enforces this against test execution. GATE-IMPL only checks the static `core_flows_covered[]` field in `tests-status.json`. |
+| Lint / type-check / coverage thresholds | All Stage 5 (mechanical gates) — orthogonal. |
+
+GATE-IMPL is strictly the **dispatch invariant** check: did we dispatch the right personas, did they stay in their lane, did the tests persona acknowledge every declared core_flow?
+
+### V.6 Meta-gate
+
+`scripts/meta/implementer-coverage-test.sh` exercises seven fixtures:
+
+1. `concern-split.json` missing → `N/A_PENDING_REVIEWER` rc=0 (pre-Stage-4 state, not a regression).
+2. multi-persona happy path → PASS.
+3. backend persona's `files_changed[]` includes a frontend file → FAIL.
+4. `tests-status.core_flows_covered[]` missing an entry from `intent.core_flows[]` → FAIL.
+5. backend persona dispatched but `backend-status.json` absent (silent-drop) → FAIL.
+6. single-persona happy path (single-status.json verdict=PASS) → PASS.
+7. persona `verdict` is `FAIL` (not PASS/PENDING) → FAIL.
+
+Wired into `scripts/meta/run-all-meta-gates.sh`. CI / pre-ship runs the runner; any FAIL is a skill regression.
+
+### V.7 Boss-facing summary
+
+| Question | Answer |
+|----------|--------|
+| What does GATE-IMPL prevent? | Three failure modes: single-author bias in implementation (same context rationalises BE+FE+tests around its own first decision), sequential wall-time burn, and silent allowlist drift where one agent touches another concern's files without flagging it. |
+| What if the atom is single-file (e.g. a small bug fix)? | `concern-split.sh` returns one dispatchable concern → mode = `single-persona`. One `fullstack-developer` runs; the gate still checks `files_changed[] ⊆ atom allowlist`. The persona overhead is not imposed when there is no parallelism to extract. |
+| What if Stage 4 never runs (skill aborted earlier)? | Gate emits `N/A_PENDING_REVIEWER` rc=0, not ERROR. Reviewer decides whether dispatch was expected for this atom. |
+| Does this depend on the npx `bmad-method` package? | No. Same pattern as Section U: persona prompts live inside this skill under `sub-skills/implementer/references/personas/`. Dispatch is via Claude Code Task tool. |
+| What's the actual wall-time saving? | B + F + T in v8.3 vs max(B, F, T) in v8.4. For a typical upload-feature atom (B ≈ 10 min, F ≈ 12 min, T ≈ 8 min): 30 min → 12 min. |
+
+---
+
+## Section W — System-design + scale-tier discipline (v8.5 — GATE-PROD-DESIGN, tier-aware GATE-STACK)
+
+### W.1 Motivation
+
+The v8.4 audit closed the spec/build allowlist holes, but left two qualitative holes open:
+
+1. **Tech-stack choice was MVP-mindset.** The catalog declared a single `stack_fitness` block per product type. A solo founder targeting "youtube clone, eventually huge" got the same stack demand list as a Series-B team operating in three regions. The gate produced PASS for stacks that were unshippable past 10k DAU but couldn't say so.
+2. **System-design was not written down.** Capacity numbers, failure modes, SLOs, tenancy, data lifecycle and observability lived (at best) in the architect persona's head. Without those, "production-ready" is a vibe, not an artefact.
+
+v8.5 closes both with one move per gap: add a **scale-tier dimension** to the feature catalog, and force the architect persona to emit a **`production-design.md`** with seven mandatory sections + a boring-tech justification block.
+
+### W.2 Scale tiers
+
+The catalog `_scale_tiers_meta` block defines four tiers:
+
+| Tier | DAU upper bound | Ops-maturity floor | Cost envelope (typical) |
+|------|----------------:|---------------------|------------------------|
+| `mvp` | 1,000 | solo | $0–$200/mo |
+| `growth` | 100,000 | small | $200–$5,000/mo |
+| `scale` | 10,000,000 | medium | $5,000–$80,000/mo |
+| `hyperscale` | unbounded | enterprise | $50,000+/mo |
+
+Per-product-type tier blocks live at `feature-catalog.json.<product>.scale_tiers.<tier>` with five fields:
+
+- `required_capabilities[]` — additive escalation (mvp ⊆ growth ⊆ scale ⊆ hyperscale, semantically)
+- `recommended_capabilities[]` — advisory, not gated
+- `disqualified_packages[]` — tier-specific blacklist (e.g. `cloudinary-all-in-one` is fine at mvp but disqualified at scale because the per-minute pricing collapses unit economics)
+- `cost_band.{min_usd_month, max_usd_month}` — the envelope this tier is sized for
+- `team_size_max` — soft upper bound; bigger team → pick higher tier (or fork to multi-product)
+
+`youtube-clone` is the canonical worked example: mvp tier accepts Cloudinary/Mux all-in-one + Postgres; growth tier adds cdn + cache + streaming protocol; scale tier disqualifies the all-in-one services because their pricing curves dominate the cost model past ~100k DAU.
+
+### W.3 Tier alignment checks (GATE-STACK v8.5 extension)
+
+When `intent.declared.scale_tier` is set AND the catalog has a `scale_tiers[<tier>]` row for the matched product type, the gate uses the tier row instead of the flat `stack_fitness` block. On top of capability presence, three new FAIL conditions fire:
+
+1. **Cost under-budgeted.** `intent.declared.cost.monthly_usd_ceiling < cost_band.min_usd_month` → FAIL. Either revise the budget upward or pick a smaller tier.
+2. **Team over-sized for tier.** `intent.declared.team.size > tier.team_size_max` → FAIL. A 30-engineer team picking the mvp tier is misaligned; push to growth/scale.
+3. **Team under-skilled for tier.** `ops_rank(intent.declared.team.ops_maturity) < ops_rank(tier.ops_maturity_floor)` → FAIL. A solo founder cannot operate a scale-tier multi-region stack regardless of stack correctness; the ops surface dominates.
+
+Ranking is monotone: `solo (1) < small (2) < medium (3) < enterprise (4)`.
+
+Backwards-compat: if `scale_tier` is unset OR the catalog lacks a tier block for the product, the gate falls back to the flat `stack_fitness` block (v8.4 behaviour). The flat block is retained as `default`.
+
+### W.4 `production-design.md` contract (GATE-PROD-DESIGN)
+
+The architect persona MUST emit `{atom_dir}/production-design.md` alongside `architecture.md`. Eight `##` sections required (header text matched verbatim):
+
+| # | Section | Min-content rule (enforced by gate) |
+|---|---------|---------------------------------------|
+| 1 | `Capacity model` | Body MUST contain digits 0-9 — adjectives forbidden. State DAU, peak RPS per critical endpoint, storage GB/mo, bandwidth TB/mo, working-set + QPS. Show the arithmetic. |
+| 2 | `Failure modes` | Markdown table with ≥3 data rows: failure / detection / blast radius / mitigation / rollback. Cover at minimum (a) primary datastore down, (b) worker queue saturated, (c) external-dep timeout. |
+| 3 | `Tenancy model` | Body present. State single-tenant or multi-tenant variant; cite tenant column if shared schema; cite noisy-neighbor mitigation. |
+| 4 | `Data lifecycle` | Body present. Per major entity: retention, RPO, RTO, deletion path. GDPR/PII MUST cite right-to-erasure. |
+| 5 | `SLO targets` | Body MUST contain `p95` AND (`%` OR `availability`). Critical read+write latency SLOs + availability target + error-budget burn policy + SLI source. |
+| 6 | `Deployment topology` | Body present. Container/lambda/edge per component; multi-AZ vs multi-region; rollback mechanism; deploy frequency + freeze policy. |
+| 7 | `Observability story` | Body present. Logs/metrics/tracing/alerts wiring + retention + on-call. |
+| 8 | `Boring-tech justification` | Body present. Every non-boring stack choice in `architecture.md` MUST appear here with a capacity-model row that *requires* the non-boring property. |
+
+If the file is absent → `N/A_PENDING_REVIEWER` (architect not yet run). If present but a section is missing or its body fails the min-content rule → FAIL.
+
+### W.5 Boring-tech rule
+
+When `scale_tiers[<tier>].required_capabilities` are satisfiable by multiple stacks, the architect MUST pick the boring one (Postgres > CockroachDB, Redis > exotic cache, S3 > novel object store, nginx > custom proxy, Linux containers > bespoke runtime). Non-boring choices require an explicit capacity-model row in `production-design.md ## Boring-tech justification` that demonstrates the boring option cannot meet the numbers.
+
+This rule is reviewer-judged at Stage 1.B (architect output) and gate-enforced by GATE-PROD-DESIGN section-8 presence. A non-boring choice without a matching justification row trips the gate via the architect's own `pending_reviewer` note OR is caught at Stage 10 (spec-compliance review).
+
+### W.6 Outputs
+
+```
+{atom_dir}/
+├── intent/verdict.json          # declared.scale_tier + cost + team (v8.5 fields)
+├── architecture.md               # stack + components + APIs + data model
+├── production-design.md          # NEW v8.5: capacity/failure/SLO/tenancy/data/deploy/obs/boring-tech
+└── gate-spec/
+    ├── stack-fitness.json        # GATE-STACK verdict, now carries .tier
+    └── prod-design.json          # GATE-PROD-DESIGN verdict
+```
+
+### W.7 Verdict JSON examples
+
+GATE-STACK (v8.5 tier path, all checks pass):
+
+```json
+{
+  "gate": "GATE-STACK",
+  "passed": true,
+  "verdict": "PASS",
+  "product_type": "youtube-clone",
+  "tier": "growth",
+  "satisfied_capabilities": ["blob_object_store=s3","transcode_worker=ffmpeg-worker","cdn=cloudfront","media_streaming_protocol=hls","relational_db_concurrent_writer=postgres","cache_layer=redis"],
+  "tier_checks": [],
+  "schema_version": "ubs-v8.5-stack"
+}
+```
+
+GATE-STACK (tier alignment fail — cost under-budget + ops floor breach):
+
+```json
+{
+  "gate": "GATE-STACK",
+  "passed": false,
+  "verdict": "FAIL",
+  "tier": "growth",
+  "missing_capabilities": [],
+  "disqualified_violations": [],
+  "tier_checks": [
+    "cost ceiling $50/mo below tier 'growth' minimum $200/mo — under-budgeted for tier",
+    "team ops_maturity 'solo' below tier 'growth' floor 'small' — team cannot operate this tier"
+  ],
+  "schema_version": "ubs-v8.5-stack"
+}
+```
+
+GATE-PROD-DESIGN (PASS):
+
+```json
+{
+  "gate": "GATE-PROD-DESIGN",
+  "passed": true,
+  "verdict": "PASS",
+  "sections_present": ["Capacity model","Failure modes","Tenancy model","Data lifecycle","SLO targets","Deployment topology","Observability story","Boring-tech justification"],
+  "schema_version": "ubs-v8.5-prod-design"
+}
+```
+
+GATE-PROD-DESIGN (FAIL — capacity has no digits, SLO has no p95):
+
+```json
+{
+  "gate": "GATE-PROD-DESIGN",
+  "passed": false,
+  "verdict": "FAIL",
+  "findings": [
+    "section '## Capacity model' has no digits — adjectives are not capacity numbers",
+    "section '## SLO targets' missing 'p95' — latency SLI required"
+  ],
+  "schema_version": "ubs-v8.5-prod-design"
+}
+```
+
+### W.8 Meta-gates
+
+| Meta-gate | Fixtures | Asserts |
+|-----------|----------|---------|
+| `stack-fitness-test.sh` (10 fixtures, v8.5) | 5 v8.4 + 5 v8.5 (growth-ok / cost-under / ops-below-floor / team-over-tier / tier-disqualified-pkg) | Tier path + v8.4 flat path both regress correctly |
+| `production-design-test.sh` (7 fixtures) | absent / full / missing-section / no-digits / <3 failure rows / no-p95 / no-availability | All section + content rules fire on negative fixtures |
+
+Both wired into `scripts/meta/run-all-meta-gates.sh`. v8.5 meta suite size: 7 gates × {5..10} fixtures each.
+
+### W.9 What this does NOT do
+
+- Does not auto-pick a tier. The user declares `scale_tier` in intent; the agent's job is to ask if absent. No "the agent inferred your tier."
+- Does not write the capacity model for the architect. Numbers come from the brief + research, not from the gate.
+- Does not gate non-boring choices mechanically. Gate checks the *justification body exists*; reviewer judges whether the justification is real or rationalisation.
+- Does not replace Stage 6.5 (cloud / prod reality). Those check the **running** system; W is the design-time contract.
+
+### W.10 Boss-facing summary
+
+| Question | Answer |
+|----------|--------|
+| What does GATE-PROD-DESIGN prevent? | "Production-ready" claims unbacked by capacity numbers, failure-mode reasoning, or SLO targets. The artefact is a falsifiable contract, not a vibe. |
+| What does the tier extension to GATE-STACK prevent? | (a) MVP stacks shipped against scale briefs because the catalog only had one row; (b) scale stacks recommended to solo founders who cannot operate them; (c) tier ↔ budget mismatches that get discovered three months in. |
+| Why is `--fast` not allowed to skip these? | Fast mode is for prototypes. Prototypes can target the mvp tier — that is itself a tier choice. Skipping the gate is not skipping the tier. |
+| Can we customise the tier definitions per project? | The catalog is editable. A custom `_scale_tiers_meta` override file under `.build-anything/` could be wired up if a project needs different ranks; out of scope for v8.5 default. |
 
 ---
 

@@ -1,11 +1,13 @@
 ---
 name: build-anything
-description: UBS v8.3 atomic build orchestrator — 17-stage pipeline (intent-declaration → deps-bootstrap → research → spec [BMAD] → schema → red-team-spec → build → mechanical gates [+playwright-e2e] → backend integrity → cloud/prod reality → security → architecture → patterns → ui-ux gate → adversarial review → perf+obs → evidence bundle → prod-verify) with confidence-loop law (LAW-CL-95), multi-agent adversarial review, mechanical gates, production-reality gates (IaC, rate limit, cache, SLO/RTO, CI seal, scaling), and three-skill composition (research + BMAD + ui-ux-pro-max) that replace "Devin says done"
+description: UBS v8.5 atomic build orchestrator — 17-stage pipeline (intent-declaration → deps-bootstrap → research → spec [BMAD] → schema → red-team-spec → build → mechanical gates [+playwright-e2e] → backend integrity → cloud/prod reality → security → architecture → patterns → ui-ux gate → adversarial review → perf+obs → evidence bundle → prod-verify) with confidence-loop law (LAW-CL-95), scale-tier-aware stack fitness (GATE-STACK v8.5), production-design contract (GATE-PROD-DESIGN), multi-agent adversarial review, mechanical gates, production-reality gates (IaC, rate limit, cache, SLO/RTO, CI seal, scaling), and three-skill composition (research + BMAD + ui-ux-pro-max) that replace "Devin says done"
 ---
 
-# /build-anything — UBS v8.3 Orchestrator
+# /build-anything — UBS v8.5 Orchestrator
 
-**Philosophy:** UBS hardening laws (LAW-11..17) + production-reality layer (GATE-22..28) + product-discovery + UI/UX + E2E layer (GATE-PFC, GATE-UIUX, GATE-25-E2E) + confidence-loop layer (LAW-CL-95, GATE-INTENT, meta-gate runner). Canonical doc: `docs/ubs.md` (single source of truth — versioned suffixes retired).
+**Philosophy:** UBS hardening laws (LAW-11..17) + production-reality layer (GATE-22..28) + product-discovery + UI/UX + E2E layer (GATE-PFC, GATE-UIUX, GATE-25-E2E) + confidence-loop layer (LAW-CL-95, GATE-INTENT, meta-gate runner) + **system-design + scale-tier discipline (v8.5: tier-aware GATE-STACK, GATE-PROD-DESIGN, boring-tech rule)**. Canonical doc: `docs/ubs.md` (single source of truth — versioned suffixes retired).
+
+**v8.5 motivation** — A v8.4 audit found stack-fitness produced internally-correct fits for the *wrong scale*: a YouTube clone got the "MVP all-in-one Cloudinary" stack while user implied 50K DAU. Root cause: no scale-tier dimension; no capacity model; no failure-modes / SLO / data-lifecycle artefact. Spec produced an MVP-mindset stack with no production thinking. v8.5 closes this by (1) adding `scale_tier` + `cost` + `team` dimensions to intent, (2) making GATE-STACK tier-aware (cost-band, team-size, ops-maturity floor), (3) adding GATE-PROD-DESIGN at Stage 1.D that enforces a `production-design.md` artefact with Capacity model (digits, not adjectives), Failure modes (≥3 rows), SLO targets (p95 + availability), Tenancy, Data lifecycle, Deployment topology, Observability, and Boring-tech justification.
 
 **v8.3 motivation** — Every prior version assumed the user's brief was right. A v8.2 audit showed the spec stage can produce internally-consistent specs for the wrong product (e.g. "YouTube clone with no upload"). Root cause: the agent inferred narrower intent than the user implied and never verified back. No downstream gate can recover from a misread brief. v8.3 fixes the read.
 
@@ -16,11 +18,13 @@ description: UBS v8.3 atomic build orchestrator — 17-stage pipeline (intent-de
 | Skill | Where injected | What it prevents |
 |-------|----------------|-------------------|
 | `research` (ck:research) | Stage 1.A (pre-spec discovery) | Feature catalog ignorance — research reveals canonical features for "X clone" before spec atom is drafted |
-| `bmad-method` (npx) | Stage 1.B (PRD + Architecture + UX agent personas) | Single-author spec — multi-agent PM/Architect/UX coverage |
+| **BMAD-method** (internalised, v8.4) | Stage 1.B (PRD + Architecture + UX persona prompts under `references/personas/`, dispatched via Task tool in parallel) | Single-author spec — multi-agent PM/Architect/UX coverage. **Method, not invocation:** the skill carries the persona prompts; the optional `npx bmad-method install` is informational only (the `run` subcommand does NOT exist). GATE-PRD enforces artefact body. |
 | `ui-ux-pro-max` | Stage 6.7 (UI quality hard gate) | Ugly / inaccessible UI — design system + 8 statically-enforced rules |
 
-Plus two new gates:
+Plus the gates:
 - **GATE-PFC** (product-feature-coverage) in Stage 1.C: matches product type against catalog → fails if must-have features absent from spec.
+- **GATE-STACK** (stack-fitness, v8.4 → tier-aware v8.5) in Stage 1.D: matches product type *plus declared `scale_tier`* against the catalog's `scale_tiers.{mvp,growth,scale,hyperscale}` block → FAILs if the declared stack lacks a tier-required capability, uses a tier-disqualified package (e.g. Cloudinary all-in-one at `scale` tier — unit economics break), under-budgets cost, over-sizes team for tier, or under-skills team below tier's `ops_maturity_floor`. Falls back to flat `stack_fitness` block when no `scale_tier` declared.
+- **GATE-PROD-DESIGN** (production-design, v8.5) in Stage 1.D: enforces `production-design.md` with 8 sections — Capacity model (must contain digits, adjectives forbidden), Failure modes (≥3 markdown data rows), Tenancy model, Data lifecycle, SLO targets (must contain `p95` AND (`%` or `availability`)), Deployment topology, Observability story, Boring-tech justification. N/A when file absent (architect persona pending), FAIL when file present but content rules unmet.
 - **GATE-25-E2E** (playwright-e2e) in Stage 5: enforces Playwright tests cover declared user journeys.
 
 **Anti-rationalisation rule (inherited from `/ck:cook`):** at every HARD-GATE you HALT and produce evidence. Do not rationalise around a failed gate. Do not skip a stage because "the test was probably fine."
@@ -32,8 +36,9 @@ Plus two new gates:
 This skill IS a closed loop. No human-in-the-loop required between stages. Sequence:
 
 ```
-PLAN     stages 1–3   spec → schema → red-team-spec   (self-iterate on ambiguity)
-BUILD    stage  4     implementer writes diff within allowlist
+INTENT   stage  0.1  declare {product_type, scale_tier, cost, team, ops_maturity}  (v8.3 + v8.5 dimensions)
+PLAN     stages 1–3   research → spec [PM/Architect/UX personas → architecture.md + production-design.md] → GATE-PFC + GATE-STACK(tier) + GATE-PROD-DESIGN → schema → red-team-spec
+BUILD    stage  4     BMAD-method personas (Dev-BE + Dev-FE + Dev-Tests) parallel-dispatch via Task tool (v8.4)
 VERIFY   stages 5–12  mechanical + backend + cloud + security + arch + review + perf
 SELF-HEAL on FAIL    /ck:autoresearch feeds the failing gate's stdout back as
                      the Verify command; patch within allowlist only; re-VERIFY
@@ -78,7 +83,7 @@ Mode flags affect threshold/iter: `--fast` (80/2), default (95/5), `--strict` (9
 
 **This stage is exempt from being skipped by `--fast`.** Fast mode lowers the threshold; it does not bypass intent declaration. Without intent, the build is undefined.
 
-7. **Run Stage 0.5 — ensure-deps** (v8.2): execute `scripts/ensure-deps.sh --project-root <root> --atom-dir <atom_dir>`. This verifies that `research` and `ui-ux-pro-max` skills exist under `~/.claude/skills/`, and installs `bmad-method` via `npx bmad-method install --modules bmm --tools claude-code --yes` if not already present in the project. Emits `{atom_dir}/deps.json`. HALT if any required dep is missing AND cannot be auto-installed. **Skip auto-install only if user passes `--no-bmad` flag** (degrades Stage 1.B to local PM-substitute agent — still enforces GATE-PFC).
+7. **Run Stage 0.5 — ensure-deps** (v8.2, updated v8.4): execute `scripts/ensure-deps.sh --project-root <root> --atom-dir <atom_dir>`. This verifies that `research` and `ui-ux-pro-max` skills exist under `~/.claude/skills/`. Emits `{atom_dir}/deps.json`. HALT if any required dep is missing AND cannot be auto-installed. **v8.4 change:** `bmad-method` npx package is now **informational only** — the skill carries persona prompts under `sub-skills/spec/references/personas/`, so `bmad-method` presence is recorded but never blocks. The deprecated `--no-bmad` flag is now the default behaviour.
 
 ## Operating Modes
 
@@ -116,19 +121,20 @@ else → emit N/A_PENDING_REVIEWER (LAW-F6: never vacuous PASS)
 
 **F6 corollary.** Empty scope is NEVER a PASS. It is `N/A_PENDING_REVIEWER`, which a human must convert to either an explicit PASS (with justification) or to a populated scope.
 
-## 17-Stage Flow (v8.3)
+## 17-Stage Flow (v8.5)
 
 | # | Stage | Sub-skill | Gates fired | HALT on |
 |---|-------|-----------|-------------|---------|
 | 0 | Pre-flight | (this file) | config / context | missing config |
 | **0.1** | **Intent Declaration (v8.3)** | `sub-skills/intent` + `scripts/intent/declare-intent.sh` | GATE-INTENT, LAW-CL-95, LAW-F6 | iter ≥ 5 with conf < 95, OR vacuous PASS (conf ≥ 95 with empty declared) |
-| **0.5** | **Deps bootstrap (v8.2)** | `scripts/ensure-deps.sh` | dep-presence | research/uiux missing, bmad install failed (unless `--no-bmad`) |
+| **0.5** | **Deps bootstrap (v8.2, v8.4)** | `scripts/ensure-deps.sh` | dep-presence | research/uiux missing (bmad-method now informational only) |
 | **1.A** | **Pre-spec product research (v8.2)** | `research` | discovery | research returns 0 sources |
-| **1.B** | **Spec Atom + PRD (L1)** | `spec` + bmad PM/Architect/UX agents | GATE-0 brief complete | non-testable criteria, no PRD produced |
+| **1.B** | **Spec Atom + PRD (L1, v8.4 BMAD-method, v8.5 prod-design)** | `spec` + persona-prompt Task-dispatch (PM, Architect, UX in parallel from `sub-skills/spec/references/personas/`); architect persona now emits BOTH `architecture.md` AND `production-design.md` | GATE-0 brief complete, **GATE-PRD** (artefact body presence) | non-testable criteria, persona artefacts incomplete or stubbed, production-design.md missing/stubbed |
 | **1.C** | **Product Feature Coverage (v8.2)** | `spec/product-feature-coverage.sh` | GATE-PFC | declared product type has must-have features missing from spec |
+| **1.D** | **Stack Fitness + Production-Design (v8.5)** | `spec/stack-fitness-check.sh` + `spec/production-design-gate.sh` | **GATE-STACK (tier-aware)** + **GATE-PROD-DESIGN** | (STACK) declared stack omits required capabilities for *product × scale_tier*, uses tier-disqualified package (e.g. Cloudinary-all-in-one at scale), cost under-budgeted for tier, team over-sized for tier, or ops-maturity below tier floor; (PROD-DESIGN) production-design.md missing required section, Capacity model has no digits, Failure modes <3 rows, SLO targets missing p95 or availability |
 | 2 | Schema / Service (L2) | `schema` | GATE-1 allowlist | unauthorised file touch |
 | 3 | Red-team Spec | `spec` (adversarial mode) | spec-attacker pre-check | spec ambiguity remains |
-| 4 | Build (L3) | `implementer` | GATE-1 + GATE-2 | allowlist violation |
+| **4** | **Build (L3, v8.4 BMAD-method)** | `implementer` + persona-prompt Task-dispatch (Dev-Backend, Dev-Frontend, Dev-Tests in parallel from `sub-skills/implementer/references/personas/`) | GATE-1 allowlist + GATE-2 commit + **GATE-IMPL** (dispatch coverage, allowlist subset, core_flow coverage) | persona files_changed outside allowlist subset, missing persona status report (silent-drop), tests-status missing declared core_flow |
 | 5 | Mechanical Gates | `gate-mechanical` | GATE-10 GATE-11 GATE-16 lint type **+ GATE-25-E2E (v8.2)** | coverage / mutation / property below threshold / Playwright fail |
 | 6 | Backend Integrity | `gate-backend` | GATE-18 a–f, GATE-19, GATE-20, GATE-21, GATE-23, GATE-24 | any sub-gate fail |
 | 6.5 | Cloud / Prod Reality (v8.1) | `gate-cloud` | GATE-22 IaC, GATE-25 deploy runbook, GATE-26 SLO+RTO, GATE-27 CI seal, GATE-28 scaling | drift / no rollback / SLO breach / mergeable main / p95 breach |
@@ -164,6 +170,8 @@ The skill itself ships with mechanical regression tests under `scripts/meta/`. T
 |-----------|---------|
 | `no-vacuous-pass-test.sh` | Empty atom → 0 PASS gates. Any gate emitting PASS against empty input is a LAW-F6 hole. |
 | `real-atom-smoke-test.sh` | Real 1-file + 1-test atom → ≥3 PASS with `confidence=100`, 0 ERROR (silent-drop guard live), no PASS with `confidence=null` or `=0` (LAW-CL-95 retrofit hole), and `--confidence-floor=80` on an N/A-only run exits 2. |
+| `stack-fitness-test.sh` (v8.4 + v8.5) | 10 fixtures: v8.4 flat-block (youtube-clone with/without object-store, ecommerce LIKE-disqualifier, todo-app permissive PASS, unknown product N/A) + v8.5 tier-aware (growth_ok, cost_underbudget FAIL, ops_below_floor FAIL, team_over_tier FAIL, tier_disqualified_pkg FAIL). Guards both legacy flat-fitness path and new `scale_tiers[tier]` resolution path. |
+| `production-design-test.sh` (v8.5) | 7 fixtures: absent → N/A_PENDING_REVIEWER, full valid → PASS, missing section → FAIL, Capacity model adjectives-only (no digits) → FAIL, Failure modes <3 rows → FAIL, SLO targets missing p95 → FAIL, SLO targets missing %/availability → FAIL. Guards the production-design contract from silent erosion. |
 | `run-all-meta-gates.sh` | Runs every sibling meta-gate and aggregates verdicts. Exit 0 = no regression, 1 = skill regression, 2 = harness rot. Wire into CI / pre-ship. |
 
 ```bash
@@ -213,7 +221,7 @@ Threshold per mode:
 - default → 95
 - `--strict` → 99
 
-Stages exempt from skip-by-fast: 0.1 (intent), 1.C (PFC), 6.7 (UI/UX), 13 (evidence). Fast mode lowers the threshold; it does not bypass these gates.
+Stages exempt from skip-by-fast: 0.1 (intent), 1.C (PFC), 1.D (STACK), 6.7 (UI/UX), 13 (evidence). Fast mode lowers the threshold; it does not bypass these gates.
 
 ## AL-4 self-heal loop
 
@@ -227,8 +235,19 @@ Stage 14 (prod-verify) MUST require explicit user confirmation before any produc
 
 ```
 {project_root}/.build-anything/atoms/{atom_code}/
+├── intent/
+│   ├── raw-prompt.md
+│   └── verdict.json       # declared {product_type, scale_tier, cost, team, ...}  (v8.5)
 ├── spec.md
+├── architecture.md        # BMAD architect persona output
+├── production-design.md   # v8.5 — capacity/failure-modes/SLO/tenancy/lifecycle/topology/obs/boring-tech
+├── prd.md                 # BMAD PM persona output
+├── ux.md                  # BMAD UX persona output
 ├── schema/                # OpenAPI, SQL DDL, type defs
+├── gate-spec/
+│   ├── pfc.json           # GATE-PFC verdict
+│   ├── stack.json         # GATE-STACK (tier-aware) verdict, includes tier_checks[]
+│   └── prod-design.json   # GATE-PROD-DESIGN verdict, includes sections_present[]
 ├── diff.patch             # build output
 ├── verdicts.json          # aggregated stage results
 ├── review/                # reviewer JSONs
@@ -268,7 +287,8 @@ Stage 14 (prod-verify) MUST require explicit user confirmation before any produc
 |-------|--------|------------|
 | `ck:research` | local: `~/.claude/skills/research/` | Stage 1.A (pre-spec discovery) |
 | `ck:ui-ux-pro-max` | local: `~/.claude/skills/ui-ux-pro-max/` | Stage 6.7 (UI hard gate) |
-| `bmad-method` | npx package (`npx bmad-method install`) | Stage 1.B (PRD/Architect/UX agents) |
+| `bmad-method` (informational) | npx package — install/status only; `run` subcommand does NOT exist | Stage 0.5 records presence into `deps.json`; never blocks |
+| **BMAD-method personas** (v8.4 internal) | `sub-skills/spec/references/personas/{pm,architect,ux,dispatch-instructions}.md` | Stage 1.B Task-tool dispatch (3 parallel personas → GATE-PRD verifies artefacts) |
 
 Auto-installer: `scripts/ensure-deps.sh` runs at Stage 0.5 and produces `deps.json`. See `references/v8-2-skill-composition.md` for the full integration contract.
 | gate-arch | `sub-skills/gate-arch/SKILL.md` |

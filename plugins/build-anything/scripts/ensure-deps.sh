@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
-# ensure-deps.sh — Stage 0.5 dependency check + auto-install
+# ensure-deps.sh — Stage 0.5 dependency check
 #
-# Verifies and installs (if missing) the 3 companion skills/tools required by
-# the v8.2+ build-anything pipeline:
+# v8.4 change: bmad-method demoted to INFORMATIONAL-ONLY.
+# Reasons:
+#   - `npx bmad-method run` does NOT exist (install/status/uninstall only).
+#   - `npx bmad-method install` hangs on interactive "Installation directory:"
+#     prompt despite --directory + --yes flags, blocking the pipeline.
+#   - The skill now carries persona prompts under
+#     sub-skills/spec/references/personas/ and dispatches them via the Claude
+#     Code Task tool. The package's presence is no longer required for
+#     Stage 1.B to function.
 #
-#   1. research          — local skill at ~/.claude/skills/research/
-#   2. ui-ux-pro-max     — local skill at ~/.claude/skills/ui-ux-pro-max/
-#   3. bmad-method       — npx package; installed into project via
-#                          `npx bmad-method install --modules bmm --tools claude-code --yes`
+# Verifies the 2 BLOCKING dependencies and PROBES (non-blocking) for the
+# third:
 #
-# Honors LAW-F6: a missing dep is NEVER a vacuous PASS — either install or HALT.
+#   1. research          — local skill at ~/.claude/skills/research/        (BLOCKING)
+#   2. ui-ux-pro-max     — local skill at ~/.claude/skills/ui-ux-pro-max/   (BLOCKING)
+#   3. bmad-method       — npx package presence in project tree              (INFORMATIONAL)
+#
+# Honors LAW-F6: a missing BLOCKING dep is NEVER a vacuous PASS — HALT.
 # Emits JSON manifest at {ATOM_DIR}/deps.json so the orchestrator can audit.
 
 set -euo pipefail
@@ -72,72 +81,37 @@ else
   fi
 fi
 
-# ── 3. bmad-method (npx package) ───────────────────────────────────
-# Check 1: is it already installed in the project?
-# bmad v6 installs to _bmad/, v5/legacy to bmad/ or .bmad-core/
+# ── 3. bmad-method (npx package) — INFORMATIONAL ONLY (v8.4) ───────
+# Stage 1.B uses internalised persona prompts under sub-skills/spec/
+# references/personas/. The npx package is recorded for evidence but
+# never blocks. We DO NOT attempt `npx bmad-method install` because:
+#   - the CLI prompts for "Installation directory:" interactively even
+#     with --directory + --yes, causing the pipeline to hang.
+#   - `npx bmad-method run` does NOT exist as a subcommand.
+# Detection strategy: probe for existing in-project install only.
+bmad_status="INFORMATIONAL_ABSENT"
 if [[ -d "$PROJECT_ROOT/_bmad" || -d "$PROJECT_ROOT/bmad" || -f "$PROJECT_ROOT/bmad-modules.yaml" || -d "$PROJECT_ROOT/.bmad-core" ]]; then
-  bmad_status="PRESENT"
+  bmad_status="INFORMATIONAL_PRESENT"
   if [[ -d "$PROJECT_ROOT/_bmad" ]]; then
     bmad_install_path="$PROJECT_ROOT/_bmad"
   else
     bmad_install_path="$PROJECT_ROOT (in-project)"
   fi
-  log "bmad-method already installed in project ($bmad_install_path)"
-fi
-
-# Check 2: is npx bmad-method callable?
-if [[ "$bmad_status" == "MISSING" ]]; then
-  if command -v npx >/dev/null 2>&1; then
-    # Try to query version without full install
-    if bmad_version=$(npx --yes -p bmad-method@latest bmad-method --version 2>/dev/null | tail -1); then
-      log "bmad-method npx package reachable (version: $bmad_version)"
-    else
-      bmad_version=""
-    fi
-  else
-    log "FATAL: npx not available — cannot install bmad-method"
-    if [[ "$MODE" != "check-only" ]]; then
-      echo "{\"deps_ok\": false, \"missing\": [\"bmad-method\"], \"reason\": \"npx missing on host\"}" > "$ATOM_DIR/deps.json"
-      exit 2
-    fi
-  fi
-
-  # Install if mode allows
-  if [[ "$MODE" != "check-only" ]]; then
-    log "Installing bmad-method into $PROJECT_ROOT …"
-    set +e
-    npx --yes bmad-method install \
-      --directory "$PROJECT_ROOT" \
-      --modules bmm \
-      --tools claude-code \
-      --yes 2>&1 | tail -20 >&2
-    rc=$?
-    set -e
-    if [[ $rc -eq 0 ]] && [[ -d "$PROJECT_ROOT/_bmad" || -d "$PROJECT_ROOT/bmad" || -f "$PROJECT_ROOT/bmad-modules.yaml" || -d "$PROJECT_ROOT/.bmad-core" ]]; then
-      bmad_status="INSTALLED"
-      if [[ -d "$PROJECT_ROOT/_bmad" ]]; then
-        bmad_install_path="$PROJECT_ROOT/_bmad"
-      else
-        bmad_install_path="$PROJECT_ROOT"
-      fi
-      log "bmad-method installed OK ($bmad_install_path)"
-    else
-      log "WARN: bmad install completed with rc=$rc but artefacts not detected"
-      bmad_status="INSTALL_FAILED"
-      # do not exit 2 here — bmad is advisory in fast mode; gate-spec will hard-fail if it's truly needed
-    fi
-  fi
+  log "bmad-method present in project ($bmad_install_path) — informational, persona prompts are used regardless"
+else
+  log "bmad-method npx package absent — non-blocking (v8.4 method-not-invocation)"
 fi
 
 # ── Emit manifest ──────────────────────────────────────────────────
 cat > "$ATOM_DIR/deps.json" <<JSON
 {
-  "deps_ok": $([[ "$research_status" == "PRESENT" && "$uiux_status" == "PRESENT" && "$bmad_status" != "MISSING" ]] && echo true || echo false),
+  "deps_ok": $([[ "$research_status" == "PRESENT" && "$uiux_status" == "PRESENT" ]] && echo true || echo false),
   "checked_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "schema_version": "ubs-v8.4",
   "deps": {
-    "research":      { "status": "$research_status",   "path": "$research_path" },
-    "ui-ux-pro-max": { "status": "$uiux_status",       "path": "$uiux_path" },
-    "bmad-method":   { "status": "$bmad_status",       "install_path": "$bmad_install_path", "version": "$bmad_version" }
+    "research":      { "status": "$research_status",   "path": "$research_path",   "blocking": true },
+    "ui-ux-pro-max": { "status": "$uiux_status",       "path": "$uiux_path",       "blocking": true },
+    "bmad-method":   { "status": "$bmad_status",       "install_path": "$bmad_install_path", "version": "$bmad_version", "blocking": false, "note": "v8.4: persona prompts internalised under sub-skills/spec/references/personas/; npx package is informational only" }
   },
   "skills_dir": "$SKILLS_DIR",
   "project_root": "$PROJECT_ROOT"
@@ -147,14 +121,9 @@ JSON
 log "deps.json written → $ATOM_DIR/deps.json"
 
 if [[ "$research_status" != "PRESENT" || "$uiux_status" != "PRESENT" ]]; then
-  log "FAIL: required local skills missing"
+  log "FAIL: required local skills missing (research and/or ui-ux-pro-max)"
   exit 2
 fi
 
-if [[ "$bmad_status" == "INSTALL_FAILED" || "$bmad_status" == "MISSING" ]]; then
-  log "WARN: bmad-method not present — spec stage will run in degraded mode"
-  # exit 0 with warning — let gate-spec decide if bmad is required for this atom type
-fi
-
-log "deps ensured."
+log "deps ensured. bmad-method status: $bmad_status (informational)"
 exit 0

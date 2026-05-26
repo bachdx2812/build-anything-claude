@@ -174,10 +174,14 @@ done < <(grep -rnE '<button[^>]*>[[:space:]]*<(svg|i|Icon)' "$SRC_ROOT" --includ
 
 # ── Aggregate findings ─────────────────────────────────────────────
 TOTAL_LINES=$(wc -l < "$FINDINGS_FILE" | tr -d ' ')
-FINDINGS_JSON=$(jq -s '.' "$FINDINGS_FILE" 2>/dev/null || echo "[]")
-COUNTS=$(jq '[.[]] | group_by(.severity) | map({(.[0].severity): length}) | add // {}' "$FINDINGS_FILE" 2>/dev/null || echo '{}')
-# Fill in zeros for any missing severity bucket
-COUNTS=$(echo "$COUNTS" | jq '{CRITICAL: (.CRITICAL // 0), HIGH: (.HIGH // 0), MEDIUM: (.MEDIUM // 0), LOW: (.LOW // 0)}')
+if [[ "$TOTAL_LINES" -eq 0 ]]; then
+  FINDINGS_JSON='[]'
+  COUNTS='{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}'
+else
+  FINDINGS_JSON=$(jq -s '.' "$FINDINGS_FILE" 2>/dev/null || echo "[]")
+  COUNTS=$(jq -s '[.[]] | group_by(.severity) | map({(.[0].severity): length}) | add // {}' "$FINDINGS_FILE" 2>/dev/null || echo '{}')
+  COUNTS=$(echo "$COUNTS" | jq '{CRITICAL: (.CRITICAL // 0), HIGH: (.HIGH // 0), MEDIUM: (.MEDIUM // 0), LOW: (.LOW // 0)}')
+fi
 
 MAX_CRIT=$(cfg "ui.thresholds.max_critical" "0")
 MAX_HIGH=$(cfg "ui.thresholds.max_high" "3")
