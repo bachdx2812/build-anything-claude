@@ -1,0 +1,8 @@
+{
+  "gate": "GATE-20",
+  "passed": false,
+  "verdict": "FAIL",
+  "evidence": {"endpoints_tested":1,"failed":1,"results":[{"path":"/api/orders","key":"ba-idem-1779782063-24706","row_delta":3,"code1":"200200","code2":"200","id1":"17","id2":"18","passed":false,"reason":"row_delta=3 (want 1); id mismatch (17 vs 18); call1 code=200200; "}]},
+  "ran_at": "2026-05-26T07:54:23Z",
+  "project": "toy-project"
+}

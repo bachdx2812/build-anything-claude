@@ -1,0 +1,9 @@
+{
+  "gate": "GATE-26",
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "no cloud.slo configured; reviewer must declare target/window/probe OR mark atom non-prod",
+  "review_required": true,
+  "ran_at": "2026-05-26T08:15:37Z",
+  "project": "toy-project"
+}

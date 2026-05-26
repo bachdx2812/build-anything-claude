@@ -1,0 +1,10 @@
+{
+  "gate": "GATE-14-lighthouse",
+  "score": null,
+  "threshold": null,
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "no frontend.test_urls configured; reviewer must add URLs OR confirm atom has no FE surface",
+  "review_required": true,
+  "timestamp": "2026-05-26T09:58:48Z"
+}

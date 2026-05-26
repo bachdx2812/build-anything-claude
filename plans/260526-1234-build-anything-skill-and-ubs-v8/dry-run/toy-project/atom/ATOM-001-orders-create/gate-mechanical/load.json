@@ -1,0 +1,9 @@
+{
+  "gate": "GATE-14-load",
+  "score": 109,
+  "threshold": 50,
+  "passed": false,
+  "delta": 59.0000,
+  "extra": {"p50_ms":0,"err_rate":0,"endpoints":2},
+  "timestamp": "2026-05-26T08:44:51Z"
+}

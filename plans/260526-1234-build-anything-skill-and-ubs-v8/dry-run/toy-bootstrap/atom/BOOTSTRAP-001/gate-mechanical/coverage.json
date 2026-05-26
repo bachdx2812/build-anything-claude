@@ -1,0 +1,10 @@
+{
+  "gate": "GATE-10",
+  "score": null,
+  "threshold": null,
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "no package.json at /Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-bootstrap/src; set stack.dir to the dir containing package.json OR confirm atom has no test runner",
+  "review_required": true,
+  "timestamp": "2026-05-26T09:58:46Z"
+}

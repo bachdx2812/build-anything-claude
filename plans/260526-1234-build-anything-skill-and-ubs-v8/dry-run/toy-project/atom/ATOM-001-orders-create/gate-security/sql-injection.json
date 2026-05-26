@@ -1,0 +1,14 @@
+{
+  "gate": "GATE-16-property-substitute",
+  "score": 1,
+  "threshold": 0,
+  "passed": false,
+  "verdict": "FAIL",
+  "evidence": {
+    "tool": "grep (semgrep not installed — install with: pip install semgrep)",
+    "matches": [
+      "/Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-project/backend/routes/orders.js:35:  const insertOrder = `INSERT INTO orders(tenant_id, total, note) VALUES('${t}', ${total}, '${note}')`;"
+    ]
+  },
+  "ran_at": "2026-05-26T08:57:05Z"
+}

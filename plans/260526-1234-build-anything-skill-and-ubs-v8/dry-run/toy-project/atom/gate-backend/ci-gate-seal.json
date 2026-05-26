@@ -1,0 +1,9 @@
+{
+  "gate": "GATE-27",
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "no cloud.github.repo configured; reviewer must wire owner/repo OR mark atom as non-deployed",
+  "review_required": true,
+  "ran_at": "2026-05-26T08:15:37Z",
+  "project": "toy-project"
+}

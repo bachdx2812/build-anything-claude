@@ -1,0 +1,10 @@
+{
+  "gate": "GATE-14-load",
+  "score": null,
+  "threshold": null,
+  "passed": null,
+  "verdict": "N/A_PENDING_REVIEWER",
+  "reason": "no load_smoke.endpoints/target_url configured; reviewer must add OR confirm atom has no HTTP perf budget",
+  "review_required": true,
+  "timestamp": "2026-05-26T09:58:48Z"
+}

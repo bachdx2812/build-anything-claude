@@ -1,0 +1,8 @@
+{
+  "gate": "GATE-18e",
+  "passed": false,
+  "verdict": "FAIL",
+  "evidence": {"audit_table":"audit_log","scenarios_run":1,"failed":1,"results":[{"name":"create_order","http_code":"200","pre":0,"post":0,"actual_delta":0,"expected_delta":1,"passed":false,"reason":"silent: 2xx response without audit row — exactly what GATE-18e catches"}]},
+  "ran_at": "2026-05-26T07:54:23Z",
+  "project": "toy-project"
+}

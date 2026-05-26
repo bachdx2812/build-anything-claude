@@ -1,0 +1,197 @@
+{
+  "atom": "BOOTSTRAP-001",
+  "ran_at": "2026-05-26T09:58:48Z",
+  "schema_version": "ubs-v8.1",
+  "summary": {
+    "gates_total": 18,
+    "pass": 1,
+    "fail": 1,
+    "na": 16
+  },
+  "gates": {
+    "GATE-14-bundle": {
+      "gate": "GATE-14-bundle",
+      "score": null,
+      "threshold": null,
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no package.json at /Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-bootstrap/frontend; set frontend.dir or stack.dir in config OR confirm atom has no FE bundle",
+      "review_required": true,
+      "timestamp": "2026-05-26T09:58:48Z"
+    },
+    "GATE-10": {
+      "gate": "GATE-10",
+      "score": null,
+      "threshold": null,
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no package.json at /Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-bootstrap/src; set stack.dir to the dir containing package.json OR confirm atom has no test runner",
+      "review_required": true,
+      "timestamp": "2026-05-26T09:58:46Z"
+    },
+    "GATE-14-lighthouse": {
+      "gate": "GATE-14-lighthouse",
+      "score": null,
+      "threshold": null,
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no frontend.test_urls configured; reviewer must add URLs OR confirm atom has no FE surface",
+      "review_required": true,
+      "timestamp": "2026-05-26T09:58:48Z"
+    },
+    "GATE-lint": {
+      "gate": "GATE-lint",
+      "score": null,
+      "threshold": null,
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "linter for node produced no valid JSON output (config missing or runtime error); reviewer must add lint config OR justify",
+      "review_required": true,
+      "timestamp": "2026-05-26T09:58:46Z"
+    },
+    "GATE-14-load": {
+      "gate": "GATE-14-load",
+      "score": null,
+      "threshold": null,
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no load_smoke.endpoints/target_url configured; reviewer must add OR confirm atom has no HTTP perf budget",
+      "review_required": true,
+      "timestamp": "2026-05-26T09:58:48Z"
+    },
+    "GATE-11": {
+      "gate": "GATE-11",
+      "score": null,
+      "threshold": null,
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "stryker did not produce JSON output at /Users/macos/apps/kerberos/ubs/plans/260526-1234-build-anything-skill-and-ubs-v8/dry-run/toy-bootstrap/src/reports/mutation/.stryker-tmp.json; reviewer must investigate (check stryker.conf.json#jsonReporter.fileName)",
+      "review_required": true,
+      "timestamp": "2026-05-26T09:58:47Z"
+    },
+    "GATE-15": {
+      "gate": "GATE-15",
+      "score": 2,
+      "threshold": 0,
+      "passed": false,
+      "delta": 2.0000,
+      "extra": {
+        "missing_files": [
+          {
+            "path": "src/.stryker-tmp/sandbox-beMZmJ/calculator.js",
+            "reasons": "no-log; no-metric; "
+          },
+          {
+            "path": "src/calculator.js",
+            "reasons": "no-log; no-metric; "
+          }
+        ],
+        "scope": 2
+      },
+      "timestamp": "2026-05-26T09:58:48Z"
+    },
+    "GATE-type": {
+      "gate": "GATE-type",
+      "score": null,
+      "threshold": null,
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no typed source files in scope; either add scope.paths to .build-anything.json OR confirm atom uses untyped language (eg plain JS/JSON)",
+      "review_required": true,
+      "timestamp": "2026-05-26T09:58:46Z"
+    },
+    "LAW-04-secret-scan": {
+      "gate": "LAW-04-secret-scan",
+      "score": 0,
+      "threshold": 0,
+      "passed": true,
+      "verdict": "PASS",
+      "evidence": {
+        "tool": "gitleaks 8.30.1",
+        "matches": []
+      },
+      "ran_at": "2026-05-26T09:58:48Z"
+    },
+    "GATE-19": {
+      "gate": "GATE-19",
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no OpenAPI spec at openapi.yaml; reviewer must verify atom has no HTTP API surface OR add spec",
+      "review_required": true,
+      "ran_at": "2026-05-26T09:58:48Z",
+      "project": "toy-bootstrap"
+    },
+    "GATE-18f": {
+      "gate": "GATE-18f",
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no authorization endpoints configured; reviewer must verify atom has no protected endpoints OR add them",
+      "review_required": true,
+      "ran_at": "2026-05-26T09:58:48Z",
+      "project": "toy-bootstrap"
+    },
+    "GATE-24": {
+      "gate": "GATE-24",
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no cache endpoints configured; reviewer must verify atom has no caching surface OR add them",
+      "review_required": true,
+      "ran_at": "2026-05-26T09:58:48Z",
+      "project": "toy-bootstrap"
+    },
+    "GATE-27": {
+      "gate": "GATE-27",
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no cloud.github.repo configured; reviewer must wire owner/repo OR mark atom as non-deployed",
+      "review_required": true,
+      "ran_at": "2026-05-26T09:58:48Z",
+      "project": "toy-bootstrap"
+    },
+    "GATE-25": {
+      "gate": "GATE-25",
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no cloud.deploy.runbook configured; reviewer must wire rollback_cmd + health_check_cmd OR mark atom as non-deployable",
+      "review_required": true,
+      "ran_at": "2026-05-26T09:58:48Z",
+      "project": "toy-bootstrap"
+    },
+    "GATE-22": {
+      "gate": "GATE-22",
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no cloud.iac.dir configured; reviewer must verify atom touches no cloud infra OR wire IaC",
+      "review_required": true,
+      "ran_at": "2026-05-26T09:58:48Z",
+      "project": "toy-bootstrap"
+    },
+    "GATE-23": {
+      "gate": "GATE-23",
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no rate-limit endpoints configured; reviewer must verify atom has no rate-sensitive surface OR add them",
+      "review_required": true,
+      "ran_at": "2026-05-26T09:58:48Z",
+      "project": "toy-bootstrap"
+    },
+    "GATE-28": {
+      "gate": "GATE-28",
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no cloud.scaling configured; reviewer must set target_url / ramp / p95_budget_ms OR mark atom as single-instance",
+      "review_required": true,
+      "ran_at": "2026-05-26T09:58:48Z",
+      "project": "toy-bootstrap"
+    },
+    "GATE-26": {
+      "gate": "GATE-26",
+      "passed": null,
+      "verdict": "N/A_PENDING_REVIEWER",
+      "reason": "no cloud.slo configured; reviewer must declare target/window/probe OR mark atom non-prod",
+      "review_required": true,
+      "ran_at": "2026-05-26T09:58:48Z",
+      "project": "toy-bootstrap"
+    }
+  }
+}

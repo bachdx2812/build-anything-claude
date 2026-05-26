@@ -1,0 +1,8 @@
+{
+  "gate": "GATE-18f",
+  "passed": false,
+  "verdict": "FAIL",
+  "evidence": {"endpoints_tested":1,"failed":1,"results":[{"method":"GET","path":"/api/orders/1","code_anon":"401","code_wrong":"200","code_owner":"200","expected_anon":"401","expected_wrong":"403","expected_owner":"2xx","passed":false,"reason":"wrong=200 want=403; "}]},
+  "ran_at": "2026-05-26T07:54:23Z",
+  "project": "toy-project"
+}

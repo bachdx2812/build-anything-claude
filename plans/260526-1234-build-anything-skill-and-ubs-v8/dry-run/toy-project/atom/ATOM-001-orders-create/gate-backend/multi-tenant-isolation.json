@@ -1,0 +1,8 @@
+{
+  "gate": "GATE-21",
+  "passed": false,
+  "verdict": "FAIL",
+  "evidence": {"tenant_a":"a","tenant_b":"b","scenarios_run":1,"failed":1,"results":[{"name":"cross_read_orders","path":"/api/orders","code":"200","leak_in_body":true,"leak_in_db":true,"passed":false,"reason":"code=200 want=403 and tenant-B leak in body; DB leak detected; "}]},
+  "ran_at": "2026-05-26T07:54:23Z",
+  "project": "toy-project"
+}

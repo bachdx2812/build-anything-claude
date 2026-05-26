@@ -1,0 +1,9 @@
+{
+  "gate": "GATE-11",
+  "score": 2.59,
+  "threshold": 60,
+  "passed": false,
+  "delta": -57.4100,
+  "extra": {"killed": 3, "total": 116, "stack": "node", "scope_files": 6},
+  "timestamp": "2026-05-26T09:49:49Z"
+}

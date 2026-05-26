@@ -1,0 +1,72 @@
+# UBS v8.1 default gitleaks rules — install at <PROJECT_ROOT>/.gitleaks.toml
+# Catches low-entropy test/demo keys that default rules reject.
+# Extend `allowlist` for known-safe placeholders.
+
+title = "UBS v8.1 secret rules"
+
+[[rules]]
+id = "openai-key"
+description = "OpenAI sk- / sk-proj- key"
+regex = '''sk-(proj-)?[A-Za-z0-9_-]{20,}'''
+tags = ["key", "openai", "ubs-v8.1"]
+
+[[rules]]
+id = "github-pat"
+description = "GitHub personal access token / app token"
+regex = '''(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}'''
+tags = ["key", "github", "ubs-v8.1"]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS access key id"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["key", "aws", "ubs-v8.1"]
+
+[[rules]]
+id = "google-api-key"
+description = "Google API key"
+regex = '''AIza[0-9A-Za-z_-]{30,}'''
+tags = ["key", "google", "ubs-v8.1"]
+
+[[rules]]
+id = "slack-token"
+description = "Slack token"
+regex = '''xox[baprs]-[A-Za-z0-9-]{10,}'''
+tags = ["key", "slack", "ubs-v8.1"]
+
+[[rules]]
+id = "stripe-key"
+description = "Stripe secret/live/test key"
+regex = '''(sk|pk|rk)_(test|live)_[A-Za-z0-9]{20,}'''
+tags = ["key", "stripe", "ubs-v8.1"]
+
+[[rules]]
+id = "jwt-token"
+description = "JWT-shaped opaque token"
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'''
+tags = ["token", "jwt", "ubs-v8.1"]
+
+[[rules]]
+id = "private-key-block"
+description = "PEM-encoded private key block"
+regex = '''-----BEGIN (RSA |EC |OPENSSH |DSA |PGP |ENCRYPTED )?PRIVATE KEY-----'''
+tags = ["key", "pem", "ubs-v8.1"]
+
+[allowlist]
+description = "Known-safe placeholders — extend per project."
+regexes = [
+  '''sk-test-(placeholder|example|fake)''',
+  '''ghp_placeholder''',
+  '''XXXX[XX]+''',
+]
+paths = [
+  '''.*\.test\.(js|ts|py|go)$''',
+  '''__fixtures__/''',
+  '''tests/fixtures/''',
+  '''\.stryker-tmp/''',
+  '''\.coverage-tmp/''',
+  '''reports/mutation/''',
+  '''node_modules/''',
+  '''dist/''',
+  '''build/''',
+]

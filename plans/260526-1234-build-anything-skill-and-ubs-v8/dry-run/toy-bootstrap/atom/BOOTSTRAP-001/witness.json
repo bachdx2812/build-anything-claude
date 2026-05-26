@@ -1,0 +1,8 @@
+{
+  "witness": "local-dev",
+  "witnessed_at": "2026-05-26T09:58:48Z",
+  "manifest_sha256": "bc4b6e437fcaeec3d0063d76abb25601b389eef661a5479a96c94cac40cd02a4",
+  "signature": null,
+  "method": "local-dev (set COSIGN_KEYLESS=1 + CI/COSIGN_EXPERIMENTAL=1 for keyless OR COSIGN_KEY=/path/to/cosign.key for key-based)",
+  "note": "LAW-17 satisfied at SHA level only — production must enable keyless OIDC"
+}

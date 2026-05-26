@@ -1,0 +1,9 @@
+{
+  "gate": "GATE-10-line",
+  "score": 36.14,
+  "threshold": 80,
+  "passed": false,
+  "delta": -43.8600,
+  "extra": {"branch_pct": 100, "branch_threshold": 80, "branch_passed": true, "stack": "node"},
+  "timestamp": "2026-05-26T08:57:04Z"
+}

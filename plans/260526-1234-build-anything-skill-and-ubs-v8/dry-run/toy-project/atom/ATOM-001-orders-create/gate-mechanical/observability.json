@@ -1,0 +1,9 @@
+{
+  "gate": "GATE-15",
+  "score": 5,
+  "threshold": 0,
+  "passed": false,
+  "delta": 5.0000,
+  "extra": {"missing_files":[{"path":"backend/server.js","reasons":"no-log; no-metric; req-bound-no-trace; "},{"path":"backend/db.js","reasons":"no-log; no-metric; "},{"path":"backend/routes/orders.js","reasons":"no-log; no-metric; req-bound-no-trace; "},{"path":"backend/routes/auth.js","reasons":"no-log; no-metric; req-bound-no-trace; "},{"path":"frontend/app.js","reasons":"no-log; no-metric; "}],"scope":5},
+  "timestamp": "2026-05-26T08:05:06Z"
+}
