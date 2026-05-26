@@ -6,7 +6,40 @@
 
 **Scope:** technical correctness, product/UX correctness, multi-agent adversarial review, mechanical evidence. Business correctness and tech-debt ledgering remain follow-up phases.
 
-**Authority:** every law and gate maps to a script under `~/.claude/skills/build-anything/scripts/` or a sub-skill under `~/.claude/skills/build-anything/sub-skills/`. Doc-only laws are forbidden — if it isn't enforced by code, it isn't a law.
+**Authority:** every law and gate maps to a script under `plugins/build-anything/scripts/` or a sub-skill under `plugins/build-anything/sub-skills/` of the canonical reference repository (below). Doc-only laws are forbidden — if it isn't enforced by code, it isn't a law.
+
+---
+
+## Canonical reference repository (READ THIS BEFORE EXECUTING)
+
+> **Mandatory pre-flight for any agent (Devin, Kimi, Comet, Claude, GPT, or other):**
+> Before interpreting any law / gate / stage in this charter, you MUST fetch and read the canonical implementation repository:
+>
+> **`https://github.com/bachdx2812/build-anything-claude`** (branch: `main`)
+>
+> This doc is the *spec*; the repo is the *reference implementation* that makes the spec mechanically executable.
+
+What the repo contains and why each agent needs it:
+
+| Path in repo | Contents | Why the agent must read it |
+|---|---|---|
+| `plugins/build-anything/scripts/spec/*.sh` | GATE-PFC, GATE-STACK (tier-aware), GATE-PROD-DESIGN, GATE-PRD, intent declaration | Stage 1.B–1.D enforcement — without these scripts the agent cannot verify spec completeness |
+| `plugins/build-anything/scripts/intent/declare-intent.sh` | Intent scaffold + verdict scoring | Stage 0.1 — required first stage; no build is legal without `intent/verdict.json` |
+| `plugins/build-anything/scripts/orchestrator/run-all-gates.sh` | Master gate dispatcher | Defines exact stdout-integer + JSON-verdict contract every other gate must honour |
+| `plugins/build-anything/scripts/meta/*.sh` | Skill self-regression suite | Proves the gates themselves do not silently rot (LAW-F6 + LAW-CL-95 invariants) |
+| `plugins/build-anything/sub-skills/spec/references/personas/{pm,architect,ux}.md` | BMAD-method persona prompts | Stage 1.B — PM / Architect / UX persona artefacts; architect persona emits both `architecture.md` AND `production-design.md` |
+| `plugins/build-anything/sub-skills/implementer/references/personas/{dev-backend,dev-frontend,dev-tests}.md` | BMAD-method dev persona prompts | Stage 4 — parallel implementer dispatch + GATE-IMPL coverage |
+| `plugins/build-anything/scripts/spec/feature-catalog.json` | Product feature catalog (9 product types × 4 scale tiers) | Stage 1.C / 1.D — must-have features per product type, scale-tier capability matrix, tier-disqualified packages |
+
+**How to consume the repo:**
+
+1. `git clone https://github.com/bachdx2812/build-anything-claude && cd build-anything-claude`
+2. Inspect `plugins/build-anything/SKILL.md` for the 17-stage flow.
+3. Treat every `scripts/**/*.sh` as the binding interpretation of the corresponding law/gate in this doc. If the doc and the script disagree, the **script wins** (the script is what the meta-suite tests against).
+4. Run `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh` as a sanity check before adopting any gate locally — expect `pass=7 fail=0`.
+5. Treat the repo as **read + adapt**: the bash gates are stack-agnostic and intended to be invoked directly by any harness (Comet, Devin's shell, Kimi, Claude Code, plain CI). No Claude-specific tooling is required to run them.
+
+The doc you are reading + this repo together = the UBS executable charter. Reading only one of them is not enough.
 
 ---
 
@@ -765,7 +798,7 @@ The skill itself has a regression spine. Three meta-gates verify the skill canno
 | `real-atom-smoke-test.sh` | Real atom produces ≥3 PASS with `confidence=100`, 0 ERROR, no PASS with `confidence=null|0`; `--confidence-floor` still fires | `meta/real-atom-smoke-test.sh` |
 | `intent-preflight-test.sh` | GATE-INTENT preflight refuses missing/NEEDS_USER verdict.json; `--skip-intent-check` bypasses | `meta/intent-preflight-test.sh` |
 
-One-line runner: `bash ~/.claude/skills/build-anything/scripts/meta/run-all-meta-gates.sh`. Auto-discovers every sibling `*.sh` meta-gate. Exit 0 = no regression, 1 = skill regression (LAW-F6 or LAW-CL-95 or GATE-INTENT broken), 2 = harness rot (a meta-gate itself broken). New meta-gates added to `scripts/meta/` are picked up without code changes.
+One-line runner: `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh`. Auto-discovers every sibling `*.sh` meta-gate. Exit 0 = no regression, 1 = skill regression (LAW-F6 or LAW-CL-95 or GATE-INTENT broken), 2 = harness rot (a meta-gate itself broken). New meta-gates added to `scripts/meta/` are picked up without code changes.
 
 This is the only known automated defence against the skill emitting silent PASS verdicts — the same failure mode the skill exists to prevent in user code. Without the meta-gate, the skill is unfalsifiable; with it, "skill says PASS against empty input" is a CI-breaking error.
 
@@ -777,19 +810,19 @@ Anyone (boss, reviewer, Devin) can re-run the verification:
 
 ```bash
 # 1. Verify LAW-F6 + LAW-CL-95 + GATE-INTENT invariants hold against the live skill
-bash ~/.claude/skills/build-anything/scripts/meta/run-all-meta-gates.sh
+bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh
 # Expected: pass=3 fail=0 error=0
 
 # 2. Verify Stage 0.1 INTENT DECLARATION halts on empty prompt
 mkdir -p /tmp/intent-test/atom
 echo "" > /tmp/intent-test/atom/intent/raw-prompt.md
-bash ~/.claude/skills/build-anything/scripts/intent/declare-intent.sh \
+bash plugins/build-anything/scripts/intent/declare-intent.sh \
   --atom-dir /tmp/intent-test/atom \
   --project-root /tmp/intent-test
 # Expected: verdict.json with next_action != "READY"
 
 # 3. Verify orchestrator preflight refuses missing intent
-bash ~/.claude/skills/build-anything/scripts/orchestrator/run-all-gates.sh \
+bash plugins/build-anything/scripts/orchestrator/run-all-gates.sh \
   --atom-dir /tmp/no-intent/atom --project-root /tmp/no-intent --no-witness
 # Expected: exit 2, log "GATE-INTENT preflight: ...verdict.json missing"
 ```
@@ -812,10 +845,11 @@ If any of those checks fails, the invariants are broken — file a regression. T
 
 When invoked with this doc + a feature description, the agent executes the following on every run, in order. Skipping any step is a LAW violation.
 
+0. **Clone the canonical implementation repository** (one-time, before anything else): `git clone https://github.com/bachdx2812/build-anything-claude` — every `plugins/build-anything/scripts/**.sh` path referenced below lives in this repo. Without the repo the agent has no executable gates and no persona prompts; the doc alone is non-runnable.
 1. **Bootstrap the project** per §M (tooling check → branch seal → derive `.build-anything.json`).
 2. **Open an atom** for the feature. Atom shape per glossary. Allowlist declared up front; off-allowlist edits HALT (LAW-02).
 3. **Run Stage 0.1 INTENT DECLARATION** per §E. Loop until READY or HALT. Without READY, orchestrator preflight refuses to run.
-4. **Run the autonomous loop** per §F (`PLAN → BUILD → VERIFY → SELF-HEAL → SEAL → SHIP`). Use the gate scripts at `~/.claude/skills/build-anything/scripts/`. Record cost on every reviewer / autoresearch call via `cost-tracker.sh`.
+4. **Run the autonomous loop** per §F (`PLAN → BUILD → VERIFY → SELF-HEAL → SEAL → SHIP`). Use the gate scripts at `plugins/build-anything/scripts/`. Record cost on every reviewer / autoresearch call via `cost-tracker.sh`.
 5. **Refuse to PASS** when:
    - any gate reports `FAIL` or `ERROR`,
    - any reviewer returns `FAIL` (consensus = ANY FAIL → FAIL; no majority vote),
@@ -875,7 +909,7 @@ GATE-STACK closes this by asserting at the **spec layer**, before code is writte
 
 A *capability* is a named requirement that the running system must satisfy. Capabilities are infrastructural, not algorithmic — they answer "what kind of thing has to be in the stack" rather than "what does the code do".
 
-Catalog file: `~/.claude/skills/build-anything/scripts/spec/feature-catalog.json`, key `_stack_fitness_capabilities`. Each capability has:
+Catalog file: `plugins/build-anything/scripts/spec/feature-catalog.json`, key `_stack_fitness_capabilities`. Each capability has:
 
 ```jsonc
 {
@@ -1009,7 +1043,7 @@ Catalog edits are not free: every accepted value carries a downstream maintenanc
 |----------|--------|
 | What was broken before v8.4? | Spec could declare a serious product (`youtube-clone`) on a toy stack (`sqlite + multer + no CDN`), and every downstream gate would pass because tests stubbed the bottleneck. |
 | What does GATE-STACK do? | Compares declared stack to a per-product-type list of required infra capabilities. Hard-fails the spec stage if any capability is missing or any disqualifying pattern is found. |
-| Where is the catalog? | `~/.claude/skills/build-anything/scripts/spec/feature-catalog.json`, `_stack_fitness_capabilities` + per-product `stack_fitness.required_capabilities[]`. |
+| Where is the catalog? | `plugins/build-anything/scripts/spec/feature-catalog.json`, `_stack_fitness_capabilities` + per-product `stack_fitness.required_capabilities[]`. |
 | Why isn't a load test enough? | Load tests run locally against staging; the misfit manifests only at fan-out scale which staging cannot reproduce. |
 | Is the gate exempt from `--fast`? | Yes. Fast mode lowers confidence thresholds; it does not allow toy stacks for serious products. |
 | What does FAIL look like? | JSON listing `missing_capabilities[]` (what's absent) and `disqualified_violations[]` (what's positively wrong), so the author knows exactly what to swap. |
@@ -1338,7 +1372,7 @@ Both wired into `scripts/meta/run-all-meta-gates.sh`. v8.5 meta suite size: 7 ga
 
 ## Appendix — Gate Script Contract
 
-Every gate script (under `~/.claude/skills/build-anything/scripts/`) honours one contract:
+Every gate script (under `plugins/build-anything/scripts/`) honours one contract:
 
 ```
 input:   --atom-dir <path>
