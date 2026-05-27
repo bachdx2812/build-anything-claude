@@ -3,7 +3,7 @@
 #
 # Purpose: prevent the skill from generating mismatched stacks. Two layers:
 #   (1) infra-capability presence per product type (v8.3+)
-#   (2) tier alignment: declared stack vs declared scale_tier/cost/team (v8.5)
+#   (2) tier alignment: declared stack vs declared scale_tier/cost (v8.5)
 #
 # Why: v8.3 audit (yt-build-from-scratch) shipped a "youtube clone" backed by
 # SQLite + multer-disk. Mechanical gates passed. Product was unshippable.
@@ -19,12 +19,9 @@
 #   - recommended_capabilities[]    — advisory, not gated
 #   - disqualified_packages[]       — tier-specific package blacklist (additive)
 #   - cost_band.{min,max}_usd_month — minimum/maximum infra cost envelope
-#   - team_size_max                 — max team size for which tier is sized
 #
 # Tier checks (only if tier block resolved AND intent fields present):
 #   - cost.monthly_usd_ceiling < cost_band.min_usd_month → FAIL (under-budgeted)
-#   - team.size > team_size_max (not null)               → FAIL (tier too small)
-#   - team.ops_maturity rank < tier.ops_maturity_floor   → FAIL (team can't ops)
 #
 # LAW-F6: no vacuous PASS. If no product_type can be resolved →
 # N/A_PENDING_REVIEWER, not PASS.
@@ -119,15 +116,11 @@ JSON
 PRODUCT_TYPE=""
 SCALE_TIER=""
 COST_CEILING=""
-TEAM_SIZE=""
-OPS_MATURITY=""
 
 if [[ -f "$ATOM_DIR/intent/verdict.json" ]]; then
   PRODUCT_TYPE=$(jq -r '.declared.product_type // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || true)
   SCALE_TIER=$(jq -r '.declared.scale_tier // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || true)
   COST_CEILING=$(jq -r '.declared.cost.monthly_usd_ceiling // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || true)
-  TEAM_SIZE=$(jq -r '.declared.team.size // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || true)
-  OPS_MATURITY=$(jq -r '.declared.team.ops_maturity // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || true)
 fi
 if [[ -z "$PRODUCT_TYPE" && -f "$ATOM_DIR/gate-spec/product-feature-coverage.json" ]]; then
   PRODUCT_TYPE=$(jq -r '.product_type // empty' "$ATOM_DIR/gate-spec/product-feature-coverage.json" 2>/dev/null || true)
@@ -179,15 +172,11 @@ if [[ "$TIER_RESOLVED" == "default" ]]; then
   TIER_DISQUAL_PKGS=""
   TIER_COST_MIN=""
   TIER_COST_MAX=""
-  TIER_TEAM_MAX=""
-  TIER_OPS_FLOOR=""
 else
   REQUIRED=$(jq -r --arg t "$CATALOG_KEY" --arg tier "$TIER_RESOLVED" '.[$t].scale_tiers[$tier].required_capabilities[]?' "$CATALOG" 2>/dev/null)
   TIER_DISQUAL_PKGS=$(jq -r --arg t "$CATALOG_KEY" --arg tier "$TIER_RESOLVED" '.[$t].scale_tiers[$tier].disqualified_packages[]?' "$CATALOG" 2>/dev/null)
   TIER_COST_MIN=$(jq -r --arg t "$CATALOG_KEY" --arg tier "$TIER_RESOLVED" '.[$t].scale_tiers[$tier].cost_band.min_usd_month // empty' "$CATALOG" 2>/dev/null)
   TIER_COST_MAX=$(jq -r --arg t "$CATALOG_KEY" --arg tier "$TIER_RESOLVED" '.[$t].scale_tiers[$tier].cost_band.max_usd_month // empty' "$CATALOG" 2>/dev/null)
-  TIER_TEAM_MAX=$(jq -r --arg t "$CATALOG_KEY" --arg tier "$TIER_RESOLVED" '.[$t].scale_tiers[$tier].team_size_max' "$CATALOG" 2>/dev/null)
-  TIER_OPS_FLOOR=$(jq -r --arg tier "$TIER_RESOLVED" '._scale_tiers_meta.tiers[$tier].ops_maturity_floor // empty' "$CATALOG" 2>/dev/null)
 fi
 
 # ── Load config ───────────────────────────────────────────────────
@@ -299,40 +288,14 @@ if [[ -n "$TIER_DISQUAL_PKGS" ]]; then
   done <<<"$TIER_DISQUAL_PKGS"
 fi
 
-# ── Tier alignment checks (cost / team / ops_maturity) ────────────
+# ── Tier alignment checks (cost only) ─────────────────────────────
 TIER_CHECK_FAILS=()
-
-ops_rank() {
-  case "$1" in
-    solo)       echo 1 ;;
-    small)      echo 2 ;;
-    medium)     echo 3 ;;
-    enterprise) echo 4 ;;
-    *)          echo 0 ;;
-  esac
-}
 
 if [[ "$TIER_RESOLVED" != "default" ]]; then
   # Cost ceiling vs tier minimum
   if [[ -n "$COST_CEILING" && "$COST_CEILING" != "null" && -n "$TIER_COST_MIN" && "$TIER_COST_MIN" != "null" ]]; then
     if [[ "$COST_CEILING" -lt "$TIER_COST_MIN" ]]; then
       TIER_CHECK_FAILS+=("cost ceiling \$${COST_CEILING}/mo below tier '$TIER_RESOLVED' minimum \$${TIER_COST_MIN}/mo — under-budgeted for tier")
-    fi
-  fi
-
-  # Team size vs tier max
-  if [[ -n "$TEAM_SIZE" && "$TEAM_SIZE" != "null" && -n "$TIER_TEAM_MAX" && "$TIER_TEAM_MAX" != "null" ]]; then
-    if [[ "$TEAM_SIZE" -gt "$TIER_TEAM_MAX" ]]; then
-      TIER_CHECK_FAILS+=("team size $TEAM_SIZE exceeds tier '$TIER_RESOLVED' max $TIER_TEAM_MAX — pick higher tier")
-    fi
-  fi
-
-  # Ops maturity vs floor
-  if [[ -n "$OPS_MATURITY" && "$OPS_MATURITY" != "null" && -n "$TIER_OPS_FLOOR" && "$TIER_OPS_FLOOR" != "null" ]]; then
-    OPS_R=$(ops_rank "$OPS_MATURITY")
-    FLOOR_R=$(ops_rank "$TIER_OPS_FLOOR")
-    if [[ "$OPS_R" -lt "$FLOOR_R" ]]; then
-      TIER_CHECK_FAILS+=("team ops_maturity '$OPS_MATURITY' below tier '$TIER_RESOLVED' floor '$TIER_OPS_FLOOR' — team cannot operate this tier")
     fi
   fi
 fi

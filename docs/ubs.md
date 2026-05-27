@@ -211,7 +211,7 @@ When body is empty, gate MUST emit `verdict: "N/A_PENDING_REVIEWER"` (passed: nu
 
 - **GATE-PRD PRD / ARCHITECTURE / UX ARTEFACT BODY (v8.4)** — Stage 1.B BMAD-method enforcement. Three personas (PM, Architect, UX) dispatched in parallel via Claude Code Task tool from prompt files under `sub-skills/spec/references/personas/`. Each persona owns a single artefact (`prd.md`, `architecture.md`, `ux-spec.md`) with mandatory sections + body lines. FAIL if any required section header has no content following it (LAW-F6 applied at spec layer: a stub header is never a PASS). Fast mode allows single-persona combined `prd.md`. Method-not-invocation: the optional `npx bmad-method install` is informational; `npx bmad-method run` does NOT exist. Script: `spec/bmad-prd-gate.sh`. Detail: §U.
 - **GATE-PFC PRODUCT FEATURE COVERAGE** — `declared.product_type` matches a feature-catalog row; every catalog-required feature is present in `success_criteria[]`. Catches "YouTube clone with no upload" class of spec failure. Script: `spec/product-feature-coverage.sh`.
-- **GATE-STACK STACK FITNESS (v8.4 → v8.5)** — declared `stack.*` block in atom brief satisfies every `required_capabilities[]` row in the catalog for the matched product type. Each capability has `accept_values`, `disqualified_values`, `disqualified_packages`, optional `disqualified_schema_columns`. FAIL when a serious product (e.g. `youtube-clone`) declares a toy stack (e.g. `better-sqlite3` + `multer`-to-local-disk + no transcoder + no CDN). Catches "YouTube clone on a laptop that cannot serve a second concurrent upload" class of spec failure — the v8.3 hole. Fuzzy match: `youtube-clone-mvp` → `youtube-clone`. **v8.5 tier-aware:** when `intent.declared.scale_tier` is set, the catalog row `scale_tiers[<tier>]` is used instead of the flat `stack_fitness` block; required capabilities, disqualified packages, cost band, team size cap and ops-maturity floor all escalate per tier. Additional tier-alignment FAIL conditions: (a) `cost.monthly_usd_ceiling < cost_band.min_usd_month` (under-budgeted for tier), (b) `team.size > team_size_max` (tier under-sized for org — pick higher tier), (c) `team.ops_maturity` below `ops_maturity_floor` (team cannot operate this tier). Script: `spec/stack-fitness-check.sh`. Exempt from `--fast`. Detail: §T (v8.4 base) + §W (v8.5 tier dimension).
+- **GATE-STACK STACK FITNESS (v8.4 → v8.5)** — declared `stack.*` block in atom brief satisfies every `required_capabilities[]` row in the catalog for the matched product type. Each capability has `accept_values`, `disqualified_values`, `disqualified_packages`, optional `disqualified_schema_columns`. FAIL when a serious product (e.g. `youtube-clone`) declares a toy stack (e.g. `better-sqlite3` + `multer`-to-local-disk + no transcoder + no CDN). Catches "YouTube clone on a laptop that cannot serve a second concurrent upload" class of spec failure — the v8.3 hole. Fuzzy match: `youtube-clone-mvp` → `youtube-clone`. **v8.5 tier-aware:** when `intent.declared.scale_tier` is set, the catalog row `scale_tiers[<tier>]` is used instead of the flat `stack_fitness` block; required capabilities, disqualified packages, and cost band all escalate per tier. Additional tier-alignment FAIL condition: `cost.monthly_usd_ceiling < cost_band.min_usd_month` (under-budgeted for tier). Script: `spec/stack-fitness-check.sh`. Exempt from `--fast`. Detail: §T (v8.4 base) + §W (v8.5 tier dimension).
 - **GATE-PROD-DESIGN PRODUCTION DESIGN (v8.5)** — Stage 1.D enforcement of architect persona's `production-design.md`. Verifies eight required sections present with body content + min-content rules: (1) `Capacity model` body MUST contain digits (no adjective-only capacity claims), (2) `Failure modes` table MUST have ≥3 data rows, (3) `Tenancy model` body present, (4) `Data lifecycle` body present, (5) `SLO targets` body MUST contain `p95` and (`%` or `availability`), (6) `Deployment topology` body present, (7) `Observability story` body present, (8) `Boring-tech justification` body present. FAIL on any missing section or content rule; N/A_PENDING_REVIEWER if the file is absent (architect persona not yet run for the atom). Catches "shipped an MVP-thinking architecture dressed as a production design" — the v8.4 hole where no capacity numbers were ever written down. Script: `spec/production-design-gate.sh`. Exempt from `--fast`. Detail: §W.
 - **GATE-UIUX UI/UX AUDIT** — design system compliance + a11y minimum + keyboard navigation + focus management. Runs only if atom touches FE surface. Script: `gate-ui-ux/audit.sh`.
 - **GATE-25-E2E END-TO-END** — Playwright / Cypress journey covering the declared `core_flows[]`. Required for any atom touching the FE+BE seam.
@@ -1217,32 +1217,27 @@ v8.5 closes both with one move per gap: add a **scale-tier dimension** to the fe
 
 The catalog `_scale_tiers_meta` block defines four tiers:
 
-| Tier | DAU upper bound | Ops-maturity floor | Cost envelope (typical) |
-|------|----------------:|---------------------|------------------------|
-| `mvp` | 1,000 | solo | $0–$200/mo |
-| `growth` | 100,000 | small | $200–$5,000/mo |
-| `scale` | 10,000,000 | medium | $5,000–$80,000/mo |
-| `hyperscale` | unbounded | enterprise | $50,000+/mo |
+| Tier | DAU upper bound | Cost envelope (typical) |
+|------|----------------:|------------------------|
+| `mvp` | 1,000 | $0–$200/mo |
+| `growth` | 100,000 | $200–$5,000/mo |
+| `scale` | 10,000,000 | $5,000–$80,000/mo |
+| `hyperscale` | unbounded | $50,000+/mo |
 
-Per-product-type tier blocks live at `feature-catalog.json.<product>.scale_tiers.<tier>` with five fields:
+Per-product-type tier blocks live at `feature-catalog.json.<product>.scale_tiers.<tier>` with four fields:
 
 - `required_capabilities[]` — additive escalation (mvp ⊆ growth ⊆ scale ⊆ hyperscale, semantically)
 - `recommended_capabilities[]` — advisory, not gated
 - `disqualified_packages[]` — tier-specific blacklist (e.g. `cloudinary-all-in-one` is fine at mvp but disqualified at scale because the per-minute pricing collapses unit economics)
 - `cost_band.{min_usd_month, max_usd_month}` — the envelope this tier is sized for
-- `team_size_max` — soft upper bound; bigger team → pick higher tier (or fork to multi-product)
 
 `youtube-clone` is the canonical worked example: mvp tier accepts Cloudinary/Mux all-in-one + Postgres; growth tier adds cdn + cache + streaming protocol; scale tier disqualifies the all-in-one services because their pricing curves dominate the cost model past ~100k DAU.
 
 ### W.3 Tier alignment checks (GATE-STACK v8.5 extension)
 
-When `intent.declared.scale_tier` is set AND the catalog has a `scale_tiers[<tier>]` row for the matched product type, the gate uses the tier row instead of the flat `stack_fitness` block. On top of capability presence, three new FAIL conditions fire:
+When `intent.declared.scale_tier` is set AND the catalog has a `scale_tiers[<tier>]` row for the matched product type, the gate uses the tier row instead of the flat `stack_fitness` block. On top of capability presence, one tier-alignment FAIL condition fires:
 
 1. **Cost under-budgeted.** `intent.declared.cost.monthly_usd_ceiling < cost_band.min_usd_month` → FAIL. Either revise the budget upward or pick a smaller tier.
-2. **Team over-sized for tier.** `intent.declared.team.size > tier.team_size_max` → FAIL. A 30-engineer team picking the mvp tier is misaligned; push to growth/scale.
-3. **Team under-skilled for tier.** `ops_rank(intent.declared.team.ops_maturity) < ops_rank(tier.ops_maturity_floor)` → FAIL. A solo founder cannot operate a scale-tier multi-region stack regardless of stack correctness; the ops surface dominates.
-
-Ranking is monotone: `solo (1) < small (2) < medium (3) < enterprise (4)`.
 
 Backwards-compat: if `scale_tier` is unset OR the catalog lacks a tier block for the product, the gate falls back to the flat `stack_fitness` block (v8.4 behaviour). The flat block is retained as `default`.
 
@@ -1269,11 +1264,23 @@ When `scale_tiers[<tier>].required_capabilities` are satisfiable by multiple sta
 
 This rule is reviewer-judged at Stage 1.B (architect output) and gate-enforced by GATE-PROD-DESIGN section-8 presence. A non-boring choice without a matching justification row trips the gate via the architect's own `pending_reviewer` note OR is caught at Stage 10 (spec-compliance review).
 
+### W.5.1 Mandatory system-design reference (v8.5+)
+
+Before drafting `architecture.md` + `production-design.md`, the architect MUST consult the external system-design reference catalog:
+
+- Local index: `<skill-root>/sub-skills/spec/references/system-design-advisor-index.md`
+- Upstream: <https://github.com/bachdx2812/system-design-advisor/tree/main/references>
+- Raw URL pattern: `https://raw.githubusercontent.com/bachdx2812/system-design-advisor/main/references/<FILE>.md`
+
+The local index maps topic → file (e.g. `youtube-clone @ growth` → `fundamentals-and-estimation.md` + `storage-and-infrastructure.md` + `caching-and-cdn.md` + `real-time-and-streaming.md` + `queues-and-protocols.md` + `databases.md` + `search-and-indexing.md` + `case-studies.md` + `authentication-and-security-deep-dive.md` + `anti-patterns-and-selection.md`). The architect picks the rows matching declared `product_type` + `scale_tier`, fetches the referenced files via `gh api repos/bachdx2812/system-design-advisor/contents/references/<FILE>` (or WebFetch / shallow clone), and CITES each consulted file by name in `production-design.md ## Boring-tech justification` or `architecture.md ## Trade-offs considered`.
+
+A non-boring stack choice WITHOUT a corresponding citation = `PENDING_REVIEWER` automatically — the architect cannot justify exotic tech against canonical large-system case studies it never read.
+
 ### W.6 Outputs
 
 ```
 {atom_dir}/
-├── intent/verdict.json          # declared.scale_tier + cost + team (v8.5 fields)
+├── intent/verdict.json          # declared.scale_tier + cost (v8.5 fields)
 ├── architecture.md               # stack + components + APIs + data model
 ├── production-design.md          # NEW v8.5: capacity/failure/SLO/tenancy/data/deploy/obs/boring-tech
 └── gate-spec/
@@ -1298,7 +1305,7 @@ GATE-STACK (v8.5 tier path, all checks pass):
 }
 ```
 
-GATE-STACK (tier alignment fail — cost under-budget + ops floor breach):
+GATE-STACK (tier alignment fail — cost under-budget):
 
 ```json
 {
@@ -1309,8 +1316,7 @@ GATE-STACK (tier alignment fail — cost under-budget + ops floor breach):
   "missing_capabilities": [],
   "disqualified_violations": [],
   "tier_checks": [
-    "cost ceiling $50/mo below tier 'growth' minimum $200/mo — under-budgeted for tier",
-    "team ops_maturity 'solo' below tier 'growth' floor 'small' — team cannot operate this tier"
+    "cost ceiling $50/mo below tier 'growth' minimum $200/mo — under-budgeted for tier"
   ],
   "schema_version": "ubs-v8.5-stack"
 }
@@ -1347,7 +1353,7 @@ GATE-PROD-DESIGN (FAIL — capacity has no digits, SLO has no p95):
 
 | Meta-gate | Fixtures | Asserts |
 |-----------|----------|---------|
-| `stack-fitness-test.sh` (10 fixtures, v8.5) | 5 v8.4 + 5 v8.5 (growth-ok / cost-under / ops-below-floor / team-over-tier / tier-disqualified-pkg) | Tier path + v8.4 flat path both regress correctly |
+| `stack-fitness-test.sh` (8 fixtures, v8.5) | 5 v8.4 + 3 v8.5 (growth-ok / cost-under / tier-disqualified-pkg) | Tier path + v8.4 flat path both regress correctly |
 | `production-design-test.sh` (7 fixtures) | absent / full / missing-section / no-digits / <3 failure rows / no-p95 / no-availability | All section + content rules fire on negative fixtures |
 
 Both wired into `scripts/meta/run-all-meta-gates.sh`. v8.5 meta suite size: 7 gates × {5..10} fixtures each.

@@ -58,10 +58,10 @@ EOF
   echo "$case_dir"
 }
 
-# v8.5: case with scale_tier + cost + team in intent
-# $1 name, $2 pt, $3 tier, $4 cost_ceiling, $5 team_size, $6 ops_maturity, $7 cfg, $8 pkg
+# v8.5: case with scale_tier + cost in intent
+# $1 name, $2 pt, $3 tier, $4 cost_ceiling, $5 cfg, $6 pkg
 mk_case_v85() {
-  local name="$1" pt="$2" tier="$3" cost="$4" team="$5" ops="$6" cfg="$7" pkg="$8"
+  local name="$1" pt="$2" tier="$3" cost="$4" cfg="$5" pkg="$6"
   local case_dir="$OUT_BASE/$name"
   local atom_dir="$case_dir/atom"
   mkdir -p "$atom_dir/intent" "$atom_dir/gate-spec"
@@ -70,8 +70,7 @@ mk_case_v85() {
   "declared": {
     "product_type": "$pt",
     "scale_tier": "$tier",
-    "cost": { "monthly_usd_ceiling": $cost, "currency": "USD" },
-    "team": { "size": $team, "ops_maturity": "$ops" }
+    "cost": { "monthly_usd_ceiling": $cost, "currency": "USD" }
   },
   "next_action": "READY",
   "confidence": 100
@@ -196,32 +195,15 @@ GROWTH_FULL_CFG='{
 }'
 GROWTH_FULL_PKG='{"dependencies": {"pg": "^8", "ioredis": "^5"}}'
 
-# ── Case 6: v8.5 growth-tier match with ok cost/team → PASS ────────
-CD=$(mk_case_v85 "6_v85_growth_ok" "youtube-clone" "growth" 1500 5 "small" "$GROWTH_FULL_CFG" "$GROWTH_FULL_PKG")
+# ── Case 6: v8.5 growth-tier match with ok cost → PASS ─────────────
+CD=$(mk_case_v85 "6_v85_growth_ok" "youtube-clone" "growth" 1500 "$GROWTH_FULL_CFG" "$GROWTH_FULL_PKG")
 run_case "6_v85_growth_ok" "$CD" "PASS" "0"
 
 # ── Case 7: growth-tier stack but cost ceiling under tier min → FAIL ──
-CD=$(mk_case_v85 "7_v85_cost_underbudget" "youtube-clone" "growth" 50 5 "small" "$GROWTH_FULL_CFG" "$GROWTH_FULL_PKG")
+CD=$(mk_case_v85 "7_v85_cost_underbudget" "youtube-clone" "growth" 50 "$GROWTH_FULL_CFG" "$GROWTH_FULL_PKG")
 run_case "7_v85_cost_underbudget" "$CD" "FAIL" "1"
 
-# ── Case 8: growth-tier stack but ops_maturity below floor → FAIL ──
-CD=$(mk_case_v85 "8_v85_ops_below_floor" "youtube-clone" "growth" 1500 5 "solo" "$GROWTH_FULL_CFG" "$GROWTH_FULL_PKG")
-run_case "8_v85_ops_below_floor" "$CD" "FAIL" "1"
-
-# ── Case 9: mvp-tier with team way too large for tier → FAIL ───────
-MVP_CFG='{
-  "scope": { "mode": "atom_on_existing", "bootstrap_glob": ["src"] },
-  "stack": {
-    "database": "postgres",
-    "media_storage": "cloudinary",
-    "transcode": "mux"
-  }
-}'
-MVP_PKG='{"dependencies": {"pg": "^8"}}'
-CD=$(mk_case_v85 "9_v85_team_over_tier" "youtube-clone" "mvp" 150 30 "small" "$MVP_CFG" "$MVP_PKG")
-run_case "9_v85_team_over_tier" "$CD" "FAIL" "1"
-
-# ── Case 10: scale-tier with tier-disqualified package present → FAIL ──
+# ── Case 8: scale-tier with tier-disqualified package present → FAIL ──
 SCALE_CFG='{
   "scope": { "mode": "atom_on_existing", "bootstrap_glob": ["src"] },
   "stack": {
@@ -236,8 +218,8 @@ SCALE_CFG='{
   }
 }'
 SCALE_PKG='{"dependencies": {"pg": "^8", "cloudinary-all-in-one": "^1.0"}}'
-CD=$(mk_case_v85 "10_v85_tier_disqualified_pkg" "youtube-clone" "scale" 10000 30 "medium" "$SCALE_CFG" "$SCALE_PKG")
-run_case "10_v85_tier_disqualified_pkg" "$CD" "FAIL" "1"
+CD=$(mk_case_v85 "8_v85_tier_disqualified_pkg" "youtube-clone" "scale" 10000 "$SCALE_CFG" "$SCALE_PKG")
+run_case "8_v85_tier_disqualified_pkg" "$CD" "FAIL" "1"
 
 # ── Aggregate ──────────────────────────────────────────────────────
 TOTAL=$(( ${#CASES_PASSED[@]} + ${#CASES_FAILED[@]} ))
