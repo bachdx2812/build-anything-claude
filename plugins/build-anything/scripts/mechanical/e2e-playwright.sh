@@ -80,6 +80,9 @@ case "$PROJECT_TYPE" in
   mobile-*)
     emit_e2e_na "project_type=$PROJECT_TYPE — mobile E2E is handled by e2e-maestro.sh"
     ;;
+  desktop-browser-*)
+    emit_e2e_na "project_type=$PROJECT_TYPE — desktop-browser E2E is handled by e2e-browser.sh (Playwright cannot drive a browser binary being built)"
+    ;;
 esac
 
 # v8.5.1 (2026-05-27): for project_type ∈ {frontend,mixed}, e2e.enabled MUST be true.

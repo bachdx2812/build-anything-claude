@@ -219,6 +219,8 @@ When body is empty, gate MUST emit `verdict: "N/A_PENDING_REVIEWER"` (passed: nu
 - **GATE-25-E2E END-TO-END** — Playwright / Cypress journey covering the declared `core_flows[]`. Required for any atom touching the FE+BE seam. **MANDATORY (v8.5.1, 2026-05-27) for `project_type ∈ {frontend, mixed}`**: `e2e.enabled = false` is no longer a valid N/A — it is FAIL by LAW-F6. Runner script (`scripts/mechanical/e2e-playwright.sh`) MUST: (1) install frontend deps if `node_modules/` absent, (2) boot backend + frontend if not already reachable, (3) wait for both to return 200, (4) execute `npx playwright test`, (5) FAIL on any vacuous run (0 passed AND 0 failed) or non-zero exit. Justification: atom 260527-0141 (`youtube-like-share`) post-mortem showed three browser-visible bugs (fail-to-load-feed from missing CORS, watch page crash from Next.js 14 `use()` mis-use, ambiguous "Upload" locator) that a declared-but-skipped Playwright step would not have caught. Declared-only is now banned. **v8.6 (2026-05-27):** for `project_type ∈ mobile-*` the runner emits `N/A_PENDING_REVIEWER` and dispatch falls through to GATE-25-E2E-MOBILE — Playwright cannot drive iOS Simulator / Android Emulator.
 - **GATE-25-E2E-MOBILE MOBILE END-TO-END (v8.6)** — Maestro-driven UI automation covering declared mobile journeys. **MANDATORY for `project_type ∈ mobile-*`**: `maestro.enabled = false` is FAIL by LAW-F6 (mirrors v8.5.1 web mandate). Runner script (`scripts/mechanical/e2e-maestro.sh`) MUST: (1) verify `maestro` binary on PATH (FAIL with install hint if missing — `curl -Ls https://get.maestro.mobile.dev | bash`), (2) verify `maestro.flows_dir` (default `.maestro/`) exists with ≥1 `*.yaml` / `*.yml` flow, (3) verify `maestro.app_id` declared (iOS bundle id OR Android package name), (4) optionally boot iOS Simulator (`xcrun simctl boot`) or Android emulator (`emulator -avd … && adb wait-for-device`) when `maestro.boot=true`, (5) execute `maestro test $flows_dir`, (6) FAIL on any vacuous run (0 `[Passed]` AND 0 `[Failed]`) or non-zero exit. Maestro is chosen because a single YAML runner covers iOS native, Android native, RN, Flutter, and Expo without per-stack runners. Catches: "boss said build me an iOS app; Devin claims done but the binary has never actually been launched." Detail: §Y.
 - **GATE-MOBILE-PERMS MOBILE PERMISSION RECONCILIATION (v8.6)** — iOS `Info.plist` `NS*UsageDescription` keys + Android `AndroidManifest.xml` `<uses-permission>` entries reconciled against actual code API usage. **MANDATORY for `project_type ∈ mobile-*`**. Two-way check: (a) CRITICAL — code references API requiring a permission (e.g. `AVCaptureDevice` / `CLLocationManager` / `CameraX` / `FusedLocationProviderClient`) but the corresponding key/permission is absent → runtime crash (iOS) or SecurityException (Android); (b) HIGH — permission declared but no matching code API found → app-store rejection risk for unjustified sensitive permissions (in `mobile.perms.strict=true` mode this also FAILs). Phase-1 reconciliation covers the top 12 iOS NS*UsageDescription keys and the top 13 Android dangerous + INTERNET permissions, including cross-platform package names (`expo-camera`, `react-native-camera`, `image_picker`, `expo-location`, `geolocator`, `flutter_blue`, `expo-local-authentication`, …). Script: `scripts/mechanical/mobile-perms-check.sh`. Detail: §Y.
+- **GATE-25-E2E-BROWSER DESKTOP-BROWSER END-TO-END (v8.7)** — CDP- or WebDriver-driven journeys against the **browser binary the atom is producing** (Chromium fork / Electron / Tauri / Gecko / from-scratch). **MANDATORY for `project_type ∈ desktop-browser-*`**: `browser.binary_path` empty is FAIL by LAW-F6 (mirrors v8.5.1 web + v8.6 mobile mandates). Runner script (`scripts/mechanical/e2e-browser.sh`) MUST: (1) verify `browser.binary_path` is set AND the file exists (FAIL if absent — the build never produced an artefact), (2) verify `browser.journeys_dir` (default `.browser-journeys/`) exists with ≥1 journey file (`*.json` / `*.yaml` / `*.yml`), (3) launch the binary under the declared `browser.driver` (`cdp` default, `webdriver` alt) using `browser.run_cmd` (defaults to bundled `_browser-cdp-runner.sh` which speaks Chrome DevTools Protocol on `--remote-debugging-port=9222`), (4) execute each journey (navigate → assertions: `title_contains` / `title_matches` / `url_contains` / `url_matches`), (5) FAIL on vacuous run (0 `[Passed]` AND 0 `[Failed]`) or any `[Failed]` journey or non-zero exit. Non-CDP drivers (Gecko Marionette, Servo's own) MUST declare `browser.run_cmd` — there is no honest universal harness. Playwright/Cypress are insufficient: they assume "the browser" exists already; here the browser **is** the SUT. Catches: "boss said ship Comet/Arc/Brave fork; Devin claims done but the binary has never actually been launched."
+- **GATE-BROWSER-WPT WEB PLATFORM TESTS CONFORMANCE (v8.7)** — W3C/WHATWG conformance run against the produced binary. **MANDATORY for `project_type ∈ desktop-browser-*`**: `browser.wpt.enabled = false` is FAIL by LAW-F6 declared-but-skipped (a browser without standards conformance evidence is not a browser). Runner script (`scripts/mechanical/browser-wpt-check.sh`) MUST: (1) verify `browser.wpt.enabled = true`, (2) verify `browser.wpt.subset[]` non-empty (the atom must declare which WPT trees apply — e.g. `["html/dom/", "css/css-flexbox/", "fetch/"]`), (3) verify a runner is reachable (`wpt` on PATH OR `browser.wpt.runner_cmd` declared), (4) verify `browser.binary_path` exists, (5) execute `wpt run --product=chrome --binary=$BIN $SUBSET` (or custom), (6) parse `--log-wptreport` JSON-lines output for pass/fail counts, (7) FAIL on 0 tests executed (vacuous) OR `pass_rate < browser.wpt.threshold` (default 0.95). Chromium itself runs millions of WPT cases nightly; a fork claiming "done" without a WPT subset run has no compatibility floor. Detail: §Z.
 - **GATE-IMPL BMAD-METHOD STAGE-4 COVERAGE (v8.4)** — Stage 4 BUILD enforcement. Partitions the atom allowlist into `{backend, frontend, tests}` concerns via `scripts/implementer/concern-split.sh` (concern-split.json). Dispatches up to three personas (Dev-Backend, Dev-Frontend, Dev-Tests) in parallel via Claude Code Task tool from prompt files under `sub-skills/implementer/references/personas/`. FAIL if (a) any dispatched persona left no `*-status.json`; (b) any persona's `files_changed[]` is not a subset of its allowlist subset; (c) persona allowlist subsets overlap (file in two personas → merge conflict); (d) `tests-status.core_flows_covered[]` is missing any entry from `intent/verdict.json.core_flows[]`. When atom does not reach Stage 4 → `N/A_PENDING_REVIEWER`, not ERROR. Single-file atoms or `--fast` collapse to single-persona; the gate still enforces files-changed ⊆ allowlist. Script: `implementer/implementer-coverage-gate.sh`. Detail: §V.
 
 > **N/A rule:** if a gate's required config is absent in `.build-anything.json`, the script writes `verdict: "N/A_PENDING_REVIEWER"` and exits 0. Reviewer MUST justify the N/A or HALT. See **§F**.
@@ -795,7 +797,7 @@ Exit codes:
 
 ## Section O — Meta-Gates (Skill Self-Regression)
 
-The skill itself has a regression spine. Nine meta-gates verify the skill cannot regress against its own invariants:
+The skill itself has a regression spine. Ten meta-gates verify the skill cannot regress against its own invariants:
 
 | Meta-gate | Asserts | Script |
 |-----------|---------|--------|
@@ -808,6 +810,7 @@ The skill itself has a regression spine. Nine meta-gates verify the skill cannot
 | `implementer-coverage-test.sh` | GATE-IMPL: silent-drop, allowlist-violation, core_flow-coverage, persona-status missing all detected | `meta/implementer-coverage-test.sh` |
 | `sm-breakdown-test.sh` (v8.5.2) | GATE-SM: 7 fixtures (no plan → N/A, valid → PASS, missing section → FAIL, oversized → FAIL, uncovered flow → FAIL, dependency cycle → FAIL, untestable AC → FAIL) | `meta/sm-breakdown-test.sh` |
 | `mobile-e2e-test.sh` (v8.6) | GATE-25-E2E-MOBILE + GATE-MOBILE-PERMS: 7 fixtures (web→N/A, maestro disabled→FAIL, no flows_dir→FAIL, 0 yaml→FAIL, perms web→N/A, missing camera desc→FAIL CRITICAL, orphan CAMERA→FAIL HIGH) | `meta/mobile-e2e-test.sh` |
+| `browser-e2e-test.sh` (v8.7) | GATE-25-E2E-BROWSER + GATE-BROWSER-WPT: 7 fixtures (backend→N/A, no binary_path→FAIL, no journeys_dir→FAIL, empty journeys→FAIL, frontend wpt→N/A, wpt.enabled=false desktop-browser→FAIL LAW-F6, wpt empty subset→FAIL) | `meta/browser-e2e-test.sh` |
 
 One-line runner: `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh`. Auto-discovers every sibling `*.sh` meta-gate. Exit 0 = no regression, 1 = skill regression (LAW-F6 or LAW-CL-95 or GATE-INTENT broken), 2 = harness rot (a meta-gate itself broken). New meta-gates added to `scripts/meta/` are picked up without code changes.
 
@@ -1703,6 +1706,176 @@ GATE-STACK (tier-aware) consumes these the same way as web capabilities: require
 | Why Maestro and not Detox / XCUITest? | One YAML runner covers iOS native + Android native + React Native + Flutter + Expo. No Mac-only build dependency. |
 | Will this break web projects? | No. Every mobile gate short-circuits with N/A_PENDING_REVIEWER on non-mobile project_type. Web behaviour unchanged. |
 | What's still manual on mobile? | Build signing (.ipa / .apk verification) and store-rules checklist — deferred to v8.7. v8.6 covers runtime + permissions + SLO dialect + product fitness. |
+
+---
+
+## Section Z — Desktop-browser layer (v8.7 — GATE-25-E2E-BROWSER + GATE-BROWSER-WPT)
+
+### Z.1 Motivation — the v8.6 "a browser is just a frontend" hole
+
+Through v8.6 the `project_type` enum covered web (frontend / backend / library / infra / mixed) and mobile (mobile-ios / mobile-android / mobile-rn / mobile-flutter / mobile-expo). Nothing covered a desktop **browser** — the binary that *renders* web pages, not a web page itself.
+
+A brief like "build me a privacy-first Chromium fork" or "ship Comet/Arc/Dia" would fall through to `frontend`, GATE-25-E2E would launch Playwright against `localhost:3000` expecting a Next.js app, find nothing, and either FAIL on a wrong axis or PASS vacuously. Standards conformance — the thing every real browser ships against (Chromium runs millions of WPT cases nightly) — had no gate at all.
+
+Practical fallout: a forked browser could ship with no JS engine wiring, broken cookies, missing CSP enforcement, or a regressed CSS layout, and the charter would have rubber-stamped it.
+
+### Z.2 Stage placement
+
+The browser layer rides Stage 5 alongside the mobile layer — no new stage number is needed:
+
+```
+... Stage 4   build atom
+              ▼
+... Stage 5   mechanical gates
+              ├─ if project_type ∈ desktop-browser-* → e2e-browser.sh + browser-wpt-check.sh
+              ├─ if project_type ∈ mobile-*          → e2e-maestro.sh + mobile-perms-check.sh
+              └─ if project_type ∈ {frontend, mixed} → e2e-playwright.sh
+              ▼
+... Stage 6.7 GATE-UIUX
+              ├─ if project_type ∈ desktop-browser-* → N/A_PENDING_REVIEWER (DOM rules don't apply)
+              └─ if project_type ∈ mobile-*          → N/A_PENDING_REVIEWER (DOM rules don't apply)
+              ▼
+... Stage 12  GATE-PROD-DESIGN
+              SLI dialect switches by project_type (web p95 / mobile cold-start / browser TTFR)
+```
+
+### Z.3 `project_type` enum extension
+
+Five new values, all carry the `desktop-browser-` prefix so dispatch case statements match `desktop-browser-*`:
+
+| Value | Detection heuristic | Typical stack |
+|-------|---------------------|---------------|
+| `desktop-browser-chromium` | `chrome/BUILD.gn` OR `src/chrome/app/` | Chromium fork (Brave / Arc / Dia / Comet shape) |
+| `desktop-browser-electron` | `electron` dep + `main` entry in `package.json` | Electron wrapper around Chromium |
+| `desktop-browser-tauri` | `src-tauri/` directory | Tauri + system webview (WebKit on macOS, WebView2 on Win) |
+| `desktop-browser-gecko` | `mozilla-central/` OR `xpcom/` | Gecko / Firefox fork |
+| `desktop-browser-novel` | Explicit declaration only | Servo / Ladybird / from-scratch (no canonical heuristic) |
+
+### Z.4 `GATE-25-E2E-BROWSER` — script contract
+
+`scripts/mechanical/e2e-browser.sh`:
+
+| Input | Source | Default |
+|-------|--------|---------|
+| `project_type` | `.build-anything.json` | `backend` |
+| `browser.binary_path` | `.build-anything.json` | (required for desktop-browser-*) |
+| `browser.driver` | `.build-anything.json` | `cdp` (alternative: `webdriver`) |
+| `browser.journeys_dir` | `.build-anything.json` | `.browser-journeys` |
+| `browser.run_cmd` | `.build-anything.json` | `_browser-cdp-runner.sh` (bundled default; atoms can override with geckodriver / safaridriver / tauri-driver / custom harness) |
+| `browser.startup_timeout_s` | `.build-anything.json` | `30` |
+
+Outputs `{atom_dir}/gate-mechanical/e2e-browser.json`:
+
+```json
+{
+  "gate": "GATE-25-E2E-BROWSER",
+  "passed": true | false | null,
+  "verdict": "PASS" | "FAIL" | "N/A_PENDING_REVIEWER",
+  "evidence": { "binary_path": "…", "driver": "cdp", "journey_count": 5, "passed": 5, "failed": 0, "exit_code": 0, "tail_log": "…" },
+  "ran_at": "2026-05-27T16:18:00Z"
+}
+```
+
+LAW-F6 rules:
+
+1. `project_type` NOT `desktop-browser-*` → `N/A_PENDING_REVIEWER` (other E2E gates cover web/mobile).
+2. `project_type ∈ desktop-browser-*` AND `browser.binary_path` empty → `FAIL`.
+3. `browser.binary_path` set but file does not exist → `FAIL`.
+4. `journeys_dir` absent OR contains 0 journey files (`*.json` / `*.yaml` / `*.yml`) → `FAIL`.
+5. Runner exits 0 with 0 passed AND 0 failed → `FAIL` (vacuous run).
+6. Any journey failed OR runner rc != 0 → `FAIL`.
+
+### Z.5 `GATE-BROWSER-WPT` — script contract
+
+`scripts/mechanical/browser-wpt-check.sh` runs a declared subset of the Web Platform Tests (W3C/WHATWG standards conformance suite, ~1.8M cases pinned per browser):
+
+| Input | Source | Default |
+|-------|--------|---------|
+| `project_type` | `.build-anything.json` | `backend` |
+| `browser.wpt.enabled` | `.build-anything.json` | `false` (LAW-F6: `false` ⇒ FAIL for desktop-browser-*) |
+| `browser.wpt.subset` | `.build-anything.json` | `[]` (required non-empty for desktop-browser-*) |
+| `browser.wpt.threshold` | `.build-anything.json` | `0.95` (pass-rate floor) |
+| `browser.wpt.runner_cmd` | `.build-anything.json` | `wpt run --product=chrome --binary=<binary_path> <subset>` |
+
+Outputs `{atom_dir}/gate-mechanical/browser-wpt.json`:
+
+```json
+{
+  "gate": "GATE-BROWSER-WPT",
+  "passed": true | false | null,
+  "verdict": "PASS" | "FAIL" | "N/A_PENDING_REVIEWER",
+  "evidence": { "subset": ["html/dom", "css/css-color"], "threshold": 0.95, "pass_rate": 0.9871, "tests_total": 4218, "tests_passed": 4164, "tests_failed": 54, "exit_code": 0 },
+  "ran_at": "2026-05-27T16:18:00Z"
+}
+```
+
+LAW-F6 rules:
+
+1. `project_type` NOT `desktop-browser-*` → `N/A_PENDING_REVIEWER`.
+2. `project_type ∈ desktop-browser-*` AND `wpt.enabled=false` → `FAIL` (shipping a browser without standards conformance evidence is the exact hole this gate closes).
+3. `wpt.subset` empty → `FAIL`.
+4. `binary_path` missing or not found → `FAIL`.
+5. `wpt` binary not on PATH AND `runner_cmd` not set → `FAIL` with install hint.
+6. Runner reports 0 tests executed → `FAIL` (vacuous).
+7. Pass-rate below `threshold` → `FAIL`.
+
+### Z.6 Production-design SLI dialect
+
+`GATE-PROD-DESIGN` SLO regex acquires a third dialect for browsers:
+
+| `project_type` | Latency SLI accepted | Stability SLI accepted |
+|----------------|---------------------|------------------------|
+| backend / frontend / mixed | `p95` | `%` OR `availability` |
+| mobile-* | `p95` OR `p99` OR `cold-start` OR `jank` OR `frame-drop` OR `launch-time` | `%` OR `availability` OR `crash-free` OR `ANR-rate` |
+| desktop-browser-* | `p95` OR `p99` OR `TTFR` OR `time-to-first-render` OR `V8-startup` OR `JS-startup` OR `paint-jank` OR `frame-drop` OR `cold-start` | `%` OR `availability` OR `tab-crash-free` OR `session-crash-free` OR `crash-free` |
+
+A browser's latency is the render-path tax (TTFR + V8 init + first paint), not backend response time. A browser's stability is per-tab and per-session crash-free rate — Chromium telemetry tracks both. The dialect now accepts the metrics a real browser-shipping team would write.
+
+### Z.7 Dispatch matrix
+
+| project_type | playwright | maestro | e2e-browser | wpt | ui-ux | mobile-perms |
+|--------------|-----------|---------|-------------|-----|-------|--------------|
+| backend | N/A | N/A | N/A | N/A | N/A | N/A |
+| frontend / mixed | RUN | N/A | N/A | N/A | RUN | N/A |
+| mobile-* | N/A | RUN | N/A | N/A | N/A | RUN |
+| desktop-browser-* | N/A | N/A | RUN | RUN | N/A | N/A |
+
+Every gate emits `N/A_PENDING_REVIEWER` for project_types it does not cover. No silent PASS.
+
+### Z.8 Feature-catalog additions
+
+Two new products under `feature-catalog.json`:
+
+- `desktop-browser-generic` — covers Chromium-fork / Electron-wrapper / Tauri-wrapper / Gecko-fork shape. `must_have`: html rendering, css layout, javascript runtime, tabs, history, bookmarks, address bar, downloads, extensions, auto update.
+- `desktop-browser-privacy` — same baseline + tracker blocking + fingerprint defense + private browsing. `must_have` keys ensure a "privacy" pitch carries the actual privacy machinery, not just marketing.
+
+Both expose `scale_tiers.{mvp,growth,scale}` with `required_capabilities` referencing the new browser-layer entries in `_stack_fitness_capabilities`: `html_parser`, `css_engine`, `js_runtime`, `networking_stack`, `browser_storage`, `devtools`, `auto_updater`, `extension_runtime`, `profile_management`, `tracker_blocker`, `fingerprint_resist`. Each capability declares accept-values (engine names + libraries that actually exist) and disqualified-values (empty / `none` / regex-based parsers).
+
+### Z.9 Meta-gate — `browser-e2e-test.sh`
+
+Seven fixtures guard the v8.7 invariant from silent erosion:
+
+| # | Case | Trigger | Expected verdict |
+|---|------|---------|------------------|
+| 1 | `project_type=backend` | non-browser passthrough | `N/A_PENDING_REVIEWER` |
+| 2 | `desktop-browser-chromium` no `binary_path` | declared but unbuilt | `FAIL` |
+| 3 | `desktop-browser-chromium` binary set, no `journeys_dir` | no journeys authored | `FAIL` |
+| 4 | `desktop-browser-chromium` `journeys_dir` exists but empty | declared but unfilled | `FAIL` |
+| 5 | `project_type=frontend` | WPT not applicable | `N/A_PENDING_REVIEWER` |
+| 6 | `desktop-browser-chromium` `wpt.enabled=false` | LAW-F6 declared-but-skipped | `FAIL` |
+| 7 | `desktop-browser-chromium` `wpt.enabled=true` but empty `subset` | vacuous WPT declaration | `FAIL` |
+
+This is the **10th** meta-gate. The complete meta-suite is wired into `run-all-meta-gates.sh` and must run green before every UBS skill release.
+
+### Z.10 Frequently surfaced questions
+
+| Question | Answer |
+|----------|--------|
+| What does v8.7 prevent? | Devin claiming "browser shipped" without a launchable binary, real journeys, or standards conformance evidence. Same LAW-F6 principle as web (v8.5.1) and mobile (v8.6), applied to a browser binary. |
+| Why WPT and not Chromium's own `web_tests`? | WPT is portable across all major browsers (Chrome, Firefox, Safari run it in CI). `web_tests` is Chromium-internal. v8.7 keeps the runner declarative so Gecko / Servo / Ladybird forks can plug in their own `runner_cmd`. |
+| Why CDP and not WebDriver? | CDP is universally supported by Chromium-shape browsers. Bundled `_browser-cdp-runner.sh` covers Chromium / Electron / Tauri (Chromium-backed) out of the box. Gecko / Safari / novel browsers MUST set `browser.run_cmd` explicitly (geckodriver / safaridriver / custom). |
+| Will this break web or mobile projects? | No. Every v8.7 gate short-circuits with `N/A_PENDING_REVIEWER` on non-browser `project_type`. Web and mobile pipelines unchanged. |
+| What's still deferred to v8.8? | `GATE-BROWSER-COMPAT` (top-1000 sites smoke), `GATE-BROWSER-CRASH` (Crashpad/Breakpad ingestion), `GATE-BROWSER-FUZZ` (libFuzzer corpus), cross-OS pixel-parity tests. v8.7 covers runtime + standards conformance + SLO dialect + product fitness. |
 
 ---
 

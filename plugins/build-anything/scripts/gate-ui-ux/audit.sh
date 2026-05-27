@@ -83,6 +83,9 @@ case "$PROJECT_TYPE" in
   mobile-*)
     emit_ui_na "project_type=$PROJECT_TYPE — native UI audit deferred to v8.7 (DOM rules don't apply)"
     ;;
+  desktop-browser-*)
+    emit_ui_na "project_type=$PROJECT_TYPE — DOM UI audit doesn't apply to a browser binary; UX is governed by GATE-25-E2E-BROWSER journeys + GATE-BROWSER-WPT conformance"
+    ;;
 esac
 
 if [[ "$UI_ENABLED" != "true" && "$PROJECT_TYPE" != "frontend" && "$PROJECT_TYPE" != "mixed" ]]; then

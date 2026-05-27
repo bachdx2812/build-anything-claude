@@ -462,6 +462,204 @@
         "logcat-only"
       ],
       "rationale": "Mobile crashes happen on user devices you can't ssh into. Without remote crash reporter = blind."
+    },
+    "html_parser": {
+      "satisfies_keys": [
+        "browser.html_parser",
+        "stack.html_parser"
+      ],
+      "accept_values": [
+        "blink",
+        "gecko",
+        "webkit",
+        "servo-html5ever",
+        "ladybird-libweb"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "regex-based"
+      ],
+      "rationale": "A browser MUST have a spec-compliant HTML5 parser. Regex parsing = not a browser."
+    },
+    "css_engine": {
+      "satisfies_keys": [
+        "browser.css_engine",
+        "stack.css_engine"
+      ],
+      "accept_values": [
+        "blink",
+        "gecko",
+        "webkit",
+        "servo-style",
+        "ladybird-libweb"
+      ],
+      "disqualified_values": [
+        "",
+        "none"
+      ],
+      "rationale": "CSS cascade + layout is the heart of rendering. No engine = no browser."
+    },
+    "js_runtime": {
+      "satisfies_keys": [
+        "browser.js_runtime",
+        "stack.js_runtime"
+      ],
+      "accept_values": [
+        "v8",
+        "spidermonkey",
+        "javascriptcore",
+        "jsc",
+        "boa",
+        "quickjs"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "eval-only"
+      ],
+      "rationale": "Modern web requires JIT-compiled JS engine. No JS = broken on 95%+ of real sites."
+    },
+    "networking_stack": {
+      "satisfies_keys": [
+        "browser.networking",
+        "stack.networking"
+      ],
+      "accept_values": [
+        "chromium-net",
+        "necko",
+        "boringssl",
+        "rustls",
+        "hyper",
+        "h3"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "http1-only"
+      ],
+      "rationale": "Browser networking must support HTTP/2 + TLS 1.3 minimum; HTTP/3 expected at scale."
+    },
+    "browser_storage": {
+      "satisfies_keys": [
+        "browser.storage",
+        "stack.storage"
+      ],
+      "accept_values": [
+        "sqlite",
+        "leveldb",
+        "indexeddb-impl",
+        "cookies-jar"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "memory-only"
+      ],
+      "rationale": "Cookies + localStorage + IndexedDB must persist; memory-only = users lose state on restart."
+    },
+    "devtools": {
+      "satisfies_keys": [
+        "browser.devtools",
+        "stack.devtools"
+      ],
+      "accept_values": [
+        "chromium-devtools",
+        "firefox-devtools",
+        "webkit-inspector",
+        "custom-cdp-frontend"
+      ],
+      "disqualified_values": [
+        "",
+        "none"
+      ],
+      "rationale": "Developers need devtools. Ship without = no third-party devs adopt."
+    },
+    "auto_updater": {
+      "satisfies_keys": [
+        "browser.auto_updater",
+        "stack.auto_updater"
+      ],
+      "accept_values": [
+        "sparkle",
+        "squirrel",
+        "omaha",
+        "winsparkle",
+        "custom-update-channel"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "manual-download"
+      ],
+      "rationale": "Browsers without auto-update accumulate unpatched vulns; CVE half-life = days."
+    },
+    "extension_runtime": {
+      "satisfies_keys": [
+        "browser.extensions",
+        "stack.extensions"
+      ],
+      "accept_values": [
+        "webextensions-api",
+        "chrome-extension-api",
+        "manifest-v3"
+      ],
+      "disqualified_values": [
+        "",
+        "none"
+      ],
+      "rationale": "Extension ecosystem = retention. Brave/Arc/Comet all support WebExtensions for parity."
+    },
+    "profile_management": {
+      "satisfies_keys": [
+        "browser.profiles",
+        "stack.profiles"
+      ],
+      "accept_values": [
+        "multi-profile-dirs",
+        "containerized-profiles",
+        "firefox-multi-account-containers"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "single-profile-only"
+      ],
+      "rationale": "Users need work/personal/dev separation. Single-profile = unusable for power users."
+    },
+    "fingerprint_resist": {
+      "satisfies_keys": [
+        "browser.fingerprint_resist",
+        "stack.fingerprint_resist"
+      ],
+      "accept_values": [
+        "letterboxing",
+        "canvas-randomization",
+        "ua-reduction",
+        "tor-fingerprint-defense"
+      ],
+      "disqualified_values": [
+        "",
+        "none"
+      ],
+      "rationale": "Privacy browsers MUST defeat trackers. Without = no differentiation from Chrome."
+    },
+    "tracker_blocker": {
+      "satisfies_keys": [
+        "browser.tracker_blocker",
+        "stack.tracker_blocker"
+      ],
+      "accept_values": [
+        "easylist",
+        "disconnect-list",
+        "brave-shields",
+        "ublock-origin-builtin"
+      ],
+      "disqualified_values": [
+        "",
+        "none"
+      ],
+      "rationale": "Tracker blocking is table-stakes for any privacy-pitched browser."
     }
   },
   "_scale_tiers_meta": {
@@ -2209,6 +2407,315 @@
         "deep_links"
       ],
       "disqualified_packages": []
+    }
+  },
+  "desktop-browser-generic": {
+    "keywords": [
+      "browser",
+      "web browser",
+      "chromium fork",
+      "browser app",
+      "build a browser",
+      "new browser"
+    ],
+    "must_have": [
+      {
+        "name": "html rendering",
+        "synonyms": [
+          "render html",
+          "html parser",
+          "dom"
+        ]
+      },
+      {
+        "name": "css layout",
+        "synonyms": [
+          "css engine",
+          "css rendering",
+          "layout"
+        ]
+      },
+      {
+        "name": "javascript runtime",
+        "synonyms": [
+          "js engine",
+          "v8",
+          "spidermonkey",
+          "javascript"
+        ]
+      },
+      {
+        "name": "tabs",
+        "synonyms": [
+          "tabbed browsing",
+          "multiple tabs"
+        ]
+      },
+      {
+        "name": "history",
+        "synonyms": [
+          "browsing history",
+          "back forward"
+        ]
+      },
+      {
+        "name": "bookmarks",
+        "synonyms": [
+          "favorites",
+          "saved sites"
+        ]
+      },
+      {
+        "name": "address bar",
+        "synonyms": [
+          "url bar",
+          "omnibox"
+        ]
+      },
+      {
+        "name": "downloads",
+        "synonyms": [
+          "file downloads",
+          "download manager"
+        ]
+      },
+      {
+        "name": "extensions",
+        "synonyms": [
+          "plugins",
+          "addons",
+          "webextensions"
+        ]
+      },
+      {
+        "name": "auto update",
+        "synonyms": [
+          "self update",
+          "update channel"
+        ]
+      }
+    ],
+    "scale_tiers": {
+      "mvp": {
+        "required_capabilities": [
+          "html_parser",
+          "css_engine",
+          "js_runtime",
+          "networking_stack",
+          "browser_storage",
+          "crash_reporter"
+        ],
+        "recommended_capabilities": [
+          "devtools",
+          "auto_updater"
+        ],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 100,
+          "max_usd_month": 2000
+        },
+        "rationale": "Even a Chromium-fork MVP needs HTML+CSS+JS+net+storage+crash. Fork-and-rebrand still pays the build-infra + signing-cert tax."
+      },
+      "growth": {
+        "required_capabilities": [
+          "html_parser",
+          "css_engine",
+          "js_runtime",
+          "networking_stack",
+          "browser_storage",
+          "crash_reporter",
+          "devtools",
+          "auto_updater",
+          "extension_runtime"
+        ],
+        "recommended_capabilities": [
+          "profile_management"
+        ],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 2000,
+          "max_usd_month": 20000
+        },
+        "rationale": "Growth requires devtools + extensions for power users + reliable auto-update for CVE response."
+      },
+      "scale": {
+        "required_capabilities": [
+          "html_parser",
+          "css_engine",
+          "js_runtime",
+          "networking_stack",
+          "browser_storage",
+          "crash_reporter",
+          "devtools",
+          "auto_updater",
+          "extension_runtime",
+          "profile_management"
+        ],
+        "recommended_capabilities": [],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 20000,
+          "max_usd_month": 500000
+        },
+        "rationale": "At scale every browser carries CDN+update infra+symbol servers+telemetry pipeline. Brave/Arc-scale ops budget is 7-figures/year minimum."
+      }
+    },
+    "stack_fitness": {
+      "required_capabilities": [
+        "html_parser",
+        "css_engine",
+        "js_runtime",
+        "networking_stack",
+        "browser_storage",
+        "crash_reporter"
+      ]
+    }
+  },
+  "desktop-browser-privacy": {
+    "keywords": [
+      "privacy browser",
+      "anti-tracking browser",
+      "private browser",
+      "tor-like browser",
+      "fingerprint resistant browser"
+    ],
+    "must_have": [
+      {
+        "name": "html rendering",
+        "synonyms": [
+          "render html",
+          "dom"
+        ]
+      },
+      {
+        "name": "css layout",
+        "synonyms": [
+          "css engine"
+        ]
+      },
+      {
+        "name": "javascript runtime",
+        "synonyms": [
+          "js engine"
+        ]
+      },
+      {
+        "name": "tracker blocking",
+        "synonyms": [
+          "block trackers",
+          "anti tracking",
+          "ad blocker"
+        ]
+      },
+      {
+        "name": "fingerprint defense",
+        "synonyms": [
+          "fingerprint resist",
+          "anti fingerprint"
+        ]
+      },
+      {
+        "name": "private browsing",
+        "synonyms": [
+          "incognito",
+          "private mode"
+        ]
+      },
+      {
+        "name": "history",
+        "synonyms": [
+          "browsing history"
+        ]
+      },
+      {
+        "name": "extensions",
+        "synonyms": [
+          "plugins",
+          "addons"
+        ]
+      },
+      {
+        "name": "auto update",
+        "synonyms": [
+          "update channel"
+        ]
+      }
+    ],
+    "scale_tiers": {
+      "mvp": {
+        "required_capabilities": [
+          "html_parser",
+          "css_engine",
+          "js_runtime",
+          "networking_stack",
+          "browser_storage",
+          "crash_reporter",
+          "tracker_blocker"
+        ],
+        "recommended_capabilities": [
+          "fingerprint_resist"
+        ],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 100,
+          "max_usd_month": 2000
+        },
+        "rationale": "Privacy MVP must block trackers from day one — that is the entire value prop. Crash reporter on user-controlled telemetry only."
+      },
+      "growth": {
+        "required_capabilities": [
+          "html_parser",
+          "css_engine",
+          "js_runtime",
+          "networking_stack",
+          "browser_storage",
+          "crash_reporter",
+          "tracker_blocker",
+          "fingerprint_resist",
+          "auto_updater"
+        ],
+        "recommended_capabilities": [
+          "devtools",
+          "extension_runtime"
+        ],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 2000,
+          "max_usd_month": 20000
+        },
+        "rationale": "Growth-stage privacy browsers need fingerprint defense + audited update channel; otherwise they ship known-CVE binaries."
+      },
+      "scale": {
+        "required_capabilities": [
+          "html_parser",
+          "css_engine",
+          "js_runtime",
+          "networking_stack",
+          "browser_storage",
+          "crash_reporter",
+          "tracker_blocker",
+          "fingerprint_resist",
+          "auto_updater",
+          "extension_runtime",
+          "profile_management"
+        ],
+        "recommended_capabilities": [],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 20000,
+          "max_usd_month": 500000
+        },
+        "rationale": "At scale (Brave/Tor-Browser shape) extension API + profile isolation + audited update infra are non-negotiable."
+      }
+    },
+    "stack_fitness": {
+      "required_capabilities": [
+        "html_parser",
+        "css_engine",
+        "js_runtime",
+        "tracker_blocker",
+        "crash_reporter"
+      ]
     }
   }
 }

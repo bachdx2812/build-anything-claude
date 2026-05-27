@@ -195,6 +195,22 @@ for sec in "${REQUIRED_SECTIONS[@]}"; do
             FINDINGS+=("section '## SLO targets' missing stability SLI — need availability/% OR crash-free OR ANR-rate for project_type=$PROJECT_TYPE")
           fi
           ;;
+        desktop-browser-*)
+          # v8.7 browser SLI dialect: a browser's SLIs are render-path + engine
+          # startup + tab stability, not backend p95. Accept TTFR (time to first
+          # render), V8/JS startup, paint-jank, plus tab-crash-free / session
+          # availability.
+          latency_ok=0
+          stability_ok=0
+          echo "$lower" | grep -qE '(p95|p99|ttfr|time[- ]?to[- ]?first[- ]?render|v8[- ]?startup|js[- ]?startup|paint[- ]?jank|frame[- ]?drop|cold[- ]?start)' && latency_ok=1
+          echo "$lower" | grep -qE '(%|availability|tab[- ]?crash[- ]?free|session[- ]?crash[- ]?free|crash[- ]?free)' && stability_ok=1
+          if [[ "$latency_ok" -eq 0 ]]; then
+            FINDINGS+=("section '## SLO targets' missing latency SLI — need p95/p99 OR TTFR OR V8/JS-startup OR paint-jank OR cold-start for project_type=$PROJECT_TYPE")
+          fi
+          if [[ "$stability_ok" -eq 0 ]]; then
+            FINDINGS+=("section '## SLO targets' missing stability SLI — need availability/% OR tab-crash-free OR session-crash-free for project_type=$PROJECT_TYPE")
+          fi
+          ;;
         *)
           if ! echo "$lower" | grep -q 'p95'; then
             FINDINGS+=("section '## SLO targets' missing 'p95' — latency SLI required")
