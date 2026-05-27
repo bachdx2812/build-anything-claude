@@ -161,7 +161,8 @@ When body is empty, gate MUST emit `verdict: "N/A_PENDING_REVIEWER"` (passed: nu
 
 ### B.0 Intent gate (Stage 0.1)
 
-- **GATE-INTENT** — Stage 0.1 mandatory first stage. Loops `extract → self-score → declare-intent.sh` until either `next_action=READY` (confidence ≥ 95, all four mandatory fields filled) OR `iter ≥ max_iter` (HALT with structured open-questions). Orchestrator preflight refuses to run subsequent gates without `intent/verdict.json` showing `next_action=READY`. Bypass via `--skip-intent-check` exists only for meta-gates and legacy smoke-tests. Script: `intent/declare-intent.sh`. Sub-skill: `sub-skills/intent/SKILL.md`.
+- **GATE-INTENT** — Stage 0.1 mandatory first stage. Loops `extract → self-score → declare-intent.sh` until either `next_action=READY` (confidence ≥ 95, all mandatory fields filled, **LAW-INTENT-FS v8.7.2 guard holds**) OR `iter ≥ max_iter` (HALT with structured open-questions). Orchestrator preflight refuses to run subsequent gates without `intent/verdict.json` showing `next_action=READY`. Bypass via `--skip-intent-check` exists only for meta-gates and legacy smoke-tests. Script: `intent/declare-intent.sh`. Sub-skill: `sub-skills/intent/SKILL.md`. Detail: §AB.
+- **LAW-INTENT-FS (v8.7.2)** — `declared.feature_surface[]` is the user-confirmed functional surface and MUST satisfy: (1) ≥ 3 items normally OR ≥ 5 items when the prompt references a known product (`clone` / `like X` / `alternative to` / brand name match), AND (2) at least one `{ "source": "user-confirm-feature-surface" }` entry in `history[]` proving the agent ran the feature enumeration interview. Stage 0.1 HALTs if either condition fails, regardless of self-reported confidence. Closes the v8.7.1 colleague-test hole where Flappy Bird shipped with no high-score/restart and Notion clone shipped without comments/realtime/search/version-history/mentions because feature enumeration was implicitly delegated to Stage 1.A research instead of being anchored in the intent verdict.
 
 ### B.1 Structural gates (1–9)
 
@@ -212,7 +213,7 @@ When body is empty, gate MUST emit `verdict: "N/A_PENDING_REVIEWER"` (passed: nu
 
 - **GATE-PRD PRD / ARCHITECTURE / UX ARTEFACT BODY (v8.4)** — Stage 1.B BMAD-method enforcement. Three personas (PM, Architect, UX) dispatched in parallel via Claude Code Task tool from prompt files under `sub-skills/spec/references/personas/`. Each persona owns a single artefact (`prd.md`, `architecture.md`, `ux-spec.md`) with mandatory sections + body lines. FAIL if any required section header has no content following it (LAW-F6 applied at spec layer: a stub header is never a PASS). Fast mode allows single-persona combined `prd.md`. Method-not-invocation: the optional `npx bmad-method install` is informational; `npx bmad-method run` does NOT exist. Script: `spec/bmad-prd-gate.sh`. Detail: §U.
 - **GATE-SM BMAD-METHOD SCRUM-MASTER BREAKDOWN (v8.5.2)** — Stage 1.B.5 enforcement of the SM persona's epic→atom breakdown. Verifies `{epic_dir}/atom-plan/plan.json` is parseable + has required keys (`epic`, `stories[]`, `execution_order[]`); every story file exists at the declared path under `atom-plan/stories/` with all six required sections + non-empty bodies (Atom brief, Acceptance Criteria, Dependencies, Allowlist hint, Estimated scope, Out-of-scope); `estimated_files ≤ sm.max_files_per_atom` (default 15) AND `estimated_loc ≤ sm.max_loc_per_atom` (default 800); every `intent.declared.core_flows[]` covered by at least one `story.core_flows[]`; depends_on graph is a DAG (cycle detection via POSIX `tsort` stderr signature, macOS-compatible); every Acceptance-Criteria line contains a testable shape (HTTP method+path, status code, CSS/RTL locator, SQL invariant, `expect(…)`, or `PRD-AC-NN`). N/A_PENDING_REVIEWER when `plan.json` is absent (single-atom epic — see Section X for skip heuristic). Catches "PM/Architect produced beautiful prose but nobody broke the epic into atom-sized stories" — the v8.5 hole where multi-feature epics fell back to the operator's manual judgement. Script: `spec/sm-breakdown-gate.sh`. Detail: §X.
-- **GATE-PFC PRODUCT FEATURE COVERAGE** — `declared.product_type` matches a feature-catalog row; every catalog-required feature is present in `success_criteria[]`. Catches "YouTube clone with no upload" class of spec failure. Script: `spec/product-feature-coverage.sh`.
+- **GATE-PFC PRODUCT FEATURE COVERAGE (v8.2 → v8.7.2 source-flip)** — Verifies every must-have feature is present in `spec.md`. **v8.7.2 priority change:** primary source-of-truth is now `intent/verdict.json.declared.feature_surface[]` filtered to `must=true` (user-confirmed via the Stage 0.1 feature-enumeration interview), NOT the static catalog. For each must-item the gate searches the spec text (case-insensitive substring) for the item's `name` OR any declared `synonyms[]` OR an explicit `waived: <name>` / `excluded: <name>` line; missing items → FAIL with `source: "declared.feature_surface"`. The catalog (`feature-catalog.json`) becomes a hint-only fallback used ONLY when `feature_surface[]` is unexpectedly empty (which itself signals a Stage 0.1 LAW-INTENT-FS violation upstream). This closes the "novel product shape" hole: catalog-per-product is unbounded, but a user-confirmed feature list works even for atoms the catalog has never seen (Flappy Bird, Notion clone, niche internal tools). Catches "YouTube clone with no upload" + "Notion clone with no comments" + "Flappy Bird with no high-score" class of spec failure. Script: `spec/product-feature-coverage.sh`. Detail: §AB.
 - **GATE-STACK STACK FITNESS (v8.4 → v8.5)** — declared `stack.*` block in atom brief satisfies every `required_capabilities[]` row in the catalog for the matched product type. Each capability has `accept_values`, `disqualified_values`, `disqualified_packages`, optional `disqualified_schema_columns`. FAIL when a serious product (e.g. `youtube-clone`) declares a toy stack (e.g. `better-sqlite3` + `multer`-to-local-disk + no transcoder + no CDN). Catches "YouTube clone on a laptop that cannot serve a second concurrent upload" class of spec failure — the v8.3 hole. Fuzzy match: `youtube-clone-mvp` → `youtube-clone`. **v8.5 tier-aware:** when `intent.declared.scale_tier` is set, the catalog row `scale_tiers[<tier>]` is used instead of the flat `stack_fitness` block; required capabilities, disqualified packages, and cost band all escalate per tier. Additional tier-alignment FAIL condition: `cost.monthly_usd_ceiling < cost_band.min_usd_month` (under-budgeted for tier). Script: `spec/stack-fitness-check.sh`. Exempt from `--fast`. Detail: §T (v8.4 base) + §W (v8.5 tier dimension).
 - **GATE-PROD-DESIGN PRODUCTION DESIGN (v8.5)** — Stage 1.D enforcement of architect persona's `production-design.md`. Verifies eight required sections present with body content + min-content rules: (1) `Capacity model` body MUST contain digits (no adjective-only capacity claims), (2) `Failure modes` table MUST have ≥3 data rows, (3) `Tenancy model` body present, (4) `Data lifecycle` body present, (5) `SLO targets` body MUST contain `p95` and (`%` or `availability`), (6) `Deployment topology` body present, (7) `Observability story` body present, (8) `Boring-tech justification` body present. FAIL on any missing section or content rule; N/A_PENDING_REVIEWER if the file is absent (architect persona not yet run for the atom). Catches "shipped an MVP-thinking architecture dressed as a production design" — the v8.4 hole where no capacity numbers were ever written down. Script: `spec/production-design-gate.sh`. Exempt from `--fast`. Detail: §W.
 - **GATE-UIUX UI/UX AUDIT** — design system compliance + a11y minimum + keyboard navigation + focus management. Runs only if atom touches FE surface. Script: `gate-ui-ux/audit.sh`.
@@ -345,9 +346,13 @@ First executable stage of every atom. Runs before deps-bootstrap (0.5), research
 iter=0
 loop:
   agent extracts {product_type, primary_user, core_flows[],
-                  success_criteria[], out_of_scope[], constraints[]}
+                  success_criteria[], out_of_scope[], constraints[],
+                  scale_tier, cost, team, feature_surface[]}    # v8.5 + v8.7.2
                   from raw-prompt.md
   agent self-scores confidence via rubric (§E.2)
+  if feature_surface needs confirmation:                          # v8.7.2
+      run feature-enumeration interview (tri-select REQUIRED/OPTIONAL/OUT-OF-SCOPE)
+      append {source: "user-confirm-feature-surface"} to history[]
   declare-intent.sh writes verdict.json
   if next_action == READY:    advance to Stage 0.5
   if next_action == NEEDS_USER:
@@ -356,7 +361,7 @@ loop:
   if next_action == HALT:     stop, return open-questions to user
 ```
 
-State machine: `scripts/intent/declare-intent.sh`. Sub-skill spec: `sub-skills/intent/SKILL.md`.
+State machine: `scripts/intent/declare-intent.sh`. Sub-skill spec: `sub-skills/intent/SKILL.md`. Feature-surface anchor detail: §AB.
 
 ### E.2 Scoring rubric (default threshold 95)
 
@@ -368,9 +373,17 @@ State machine: `scripts/intent/declare-intent.sh`. Sub-skill spec: `sub-skills/i
 | `success_criteria[0]` | −15 |
 | `out_of_scope[0]` | −10 |
 | `constraints[0]` | −5 |
+| `scale_tier` (v8.5) | −20 |
+| `cost.monthly_usd_ceiling` (v8.5) | −15 |
+| `team.size` (v8.5) | −10 |
+| `team.ops_maturity` (v8.5) | −10 |
+| `feature_surface` empty (v8.7.2) | −30 |
+| `feature_surface` < 3 items (v8.7.2) | −25 |
+| `feature_surface` < 5 items AND prompt references known product (v8.7.2) | −25 |
+| `feature_surface` populated but no `user-confirm-feature-surface` entry in `history[]` (v8.7.2) | −20 |
 | adversarial paraphrase fails | −10 |
 
-Confidence starts at 100. Subtractions stack. Confidence ≥ 95 AND all four mandatory fields non-null → READY. Else NEEDS_USER (or HALT if iter exhausted).
+Confidence starts at 100. Subtractions stack. Confidence ≥ 95 AND all mandatory fields non-null AND LAW-INTENT-FS guard holds (v8.7.2) → READY. Else NEEDS_USER (or HALT if iter exhausted).
 
 **Adversarial paraphrase check.** Before declaring READY, agent asks: *"if a malicious paraphraser rewrote my declared block to be 80% different from the user's intent but still parsed all the same criteria, would the user be happy?"* If "maybe not", subtract 10 and loop.
 
@@ -378,9 +391,9 @@ Confidence starts at 100. Subtractions stack. Confidence ≥ 95 AND all four man
 
 The `declared` block is read verbatim by:
 
-- 1.A research — `product_type` seeds research query templates
-- 1.B PRD/architect — full `declared` block is the PM brief input
-- 1.C GATE-PFC — `product_type` matches the feature-catalog row
+- 1.A research — `product_type` + `feature_surface[]` (v8.7.2) seed research query templates; research expands non-functional context around the anchored feature list
+- 1.B PRD/architect — full `declared` block is the PM brief input; PRD must-have section MUST include every `feature_surface[*]` with `must=true` (v8.7.2)
+- 1.C GATE-PFC — `declared.feature_surface[] | must==true` is primary source-of-truth (v8.7.2); `product_type` matches the feature-catalog row as fallback only
 - 3 red-team spec — `out_of_scope[]` is the adversary's allowed weapons
 
 If any downstream stage reads a field that was null in the frozen verdict, the orchestrator HALTs — the upstream stage should have caught the gap.
@@ -798,7 +811,7 @@ Exit codes:
 
 ## Section O — Meta-Gates (Skill Self-Regression)
 
-The skill itself has a regression spine. Eleven meta-gates verify the skill cannot regress against its own invariants:
+The skill itself has a regression spine. Twelve meta-gates verify the skill cannot regress against its own invariants:
 
 | Meta-gate | Asserts | Script |
 |-----------|---------|--------|
@@ -813,6 +826,7 @@ The skill itself has a regression spine. Eleven meta-gates verify the skill cann
 | `mobile-e2e-test.sh` (v8.6) | GATE-25-E2E-MOBILE + GATE-MOBILE-PERMS: 7 fixtures (web→N/A, maestro disabled→FAIL, no flows_dir→FAIL, 0 yaml→FAIL, perms web→N/A, missing camera desc→FAIL CRITICAL, orphan CAMERA→FAIL HIGH) | `meta/mobile-e2e-test.sh` |
 | `browser-e2e-test.sh` (v8.7) | GATE-25-E2E-BROWSER + GATE-BROWSER-WPT: 7 fixtures (backend→N/A, no binary_path→FAIL, no journeys_dir→FAIL, empty journeys→FAIL, frontend wpt→N/A, wpt.enabled=false desktop-browser→FAIL LAW-F6, wpt empty subset→FAIL) | `meta/browser-e2e-test.sh` |
 | `compensating-coverage-test.sh` (v8.7.1) | GATE-COMP-COV: 6 fixtures (frontend→N/A specialized gate exists, library no config→FAIL LAW-F6, library missing `coverage_cmd`→FAIL, library line=92 branch=88→PASS, library line=75 below 90 floor→FAIL, cli line=0 branch=0 vacuous→FAIL) | `meta/compensating-coverage-test.sh` |
+| `intent-feature-surface-test.sh` (v8.7.2) | LAW-INTENT-FS: 5 fixtures (empty `feature_surface` + plain prompt → HALT below floor=3, 2 items + plain → HALT, 5 items + `user-confirm-feature-surface` history → READY, 5 items missing user-confirm history → HALT vacuous-PASS guard, "notion clone" + only 3 items → HALT referenced-product floor=5). Guards Stage 0.1 from advancing without user-anchored functional surface. | `meta/intent-feature-surface-test.sh` |
 
 One-line runner: `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh`. Auto-discovers every sibling `*.sh` meta-gate. Exit 0 = no regression, 1 = skill regression (LAW-F6 or LAW-CL-95 or GATE-INTENT broken), 2 = harness rot (a meta-gate itself broken). New meta-gates added to `scripts/meta/` are picked up without code changes.
 
@@ -2003,6 +2017,131 @@ v8.8 will add: per-module coverage floor (no single module < 70% — prevents on
 | What if my project genuinely can't be unit-tested (firmware on custom silicon)? | Declare `compensating_coverage.reason` with the constraint AND wrap whatever can be tested (host-side simulator, mock register map, calibration table validators). Even firmware has a testable host-side surface; 0% line coverage is never a defensible answer. |
 | Why no `mutation` threshold yet? | Mutation testing is tool-specific (Stryker / Mutmut / mutPy / cargo-mutants) and slow. v8.7.2 adds it once the tooling story stabilises. |
 | Why clamp thresholds at the floor instead of erroring on lower-than-floor declarations? | Clamping makes the gate friendlier to operators copy-pasting old configs. The log line records the clamp so the reviewer sees it. |
+
+---
+
+## Section AB — Intent feature-surface anchor (v8.7.2 — LAW-INTENT-FS)
+
+### AB.1 Why this layer exists
+
+A v8.7.1 colleague test (2026-05-27) had a teammate drive the skill end-to-end on two atoms:
+
+1. **Flappy Bird web** — shipped one-shot play. No login, no DB, no high-score persistence, no leaderboard, no restart-without-reload.
+2. **Notion clone** — shipped register / login / CRUD / workspace / share / nested page / database / file upload. Missing: comments, mentions, real-time collaboration, search, version history, database-view variety (kanban / calendar / gallery), granular sharing permissions, slash commands, drag reorder.
+
+Both atoms cleared every prior gate. Root cause was NOT catalog blindness (catalog-per-product is unbounded — every novel shape is an empty entry that silently passes GATE-PFC). Root cause was **Stage 0.1 INTENT delegated feature enumeration to Stage 1.A research** (`sub-skills/intent/SKILL.md` previously said: *"Does not enumerate features — that is Stage 1.A (ck:research)"*). Research returns whatever it surfaces. User's full functional expectations were never anchored in the intent verdict, so every downstream stage built whatever the agent picked.
+
+LAW-CL-95 forces `confidence ≥ 95` on intent, but the v8.5 rubric (`product_type`, `primary_user`, `core_flows`, `success_criteria`, `scale_tier`, `cost`) reaches 95 with shallow flows. "User can register, login, create page, share page" = 4 flows = passes flow-count check = hopelessly incomplete Notion clone.
+
+v8.7.2 fixes the source.
+
+### AB.2 Contract — `declared.feature_surface[]`
+
+New required field on `intent.json.declared`:
+
+```json
+"feature_surface": [
+  {
+    "name": "string",                  // canonical feature label
+    "must": true | false,              // must=true → MUST appear in spec
+    "synonyms": ["string", "..."],     // accepted alternate phrasings for spec match
+    "rationale": "string"              // why this matters (1-line)
+  },
+  ...
+]
+```
+
+Items with `must=true` are the user-confirmed source-of-truth. Items with `must=false` are nice-to-have. OUT-OF-SCOPE items are NOT placed here — they move to `declared.out_of_scope[]`.
+
+### AB.3 Feature enumeration interview protocol
+
+After first-pass extraction, Stage 0.1 agent MUST:
+
+1. **Draft `feature_surface[]`** from raw prompt verbatim (items user literally said).
+2. **Expand for known-product references.** Regex match on `\bclone\b`, `\blike [A-Z][a-z]+`, `\balternative to`, OR a famous product name (Notion, Figma, YouTube, Flappy Bird, Slack, Trello, Stripe, Airbnb, …). When triggered: agent expands draft to the canonical feature set of the referenced product BEFORE confirming with user. Over-enumerate then let user trim — the failure mode v8.7.2 fixes is under-enumeration.
+3. **Present draft via `AskUserQuestion`** in tri-select format per item: `REQUIRED` / `OPTIONAL` / `OUT-OF-SCOPE`. Include "add more" prompt at the bottom.
+4. **Apply user answers.** REQUIRED → `must=true`. OPTIONAL → `must=false`. OUT-OF-SCOPE → moved to `declared.out_of_scope[]`. Added items re-classified next round.
+5. **Append `{ "iter": N, "source": "user-confirm-feature-surface", "added": [...], "removed": [...] }`** to `history[]`. This is the falsifiable proof the interview ran.
+6. **Re-loop if user added items.** Max 3 rounds — enumeration must converge. Round 3 with still-open additions → HALT with `na_pending_reason: "feature enumeration did not converge in 3 rounds"`.
+
+The interview is NOT optional. Vacuous-PASS guard (§AB.5) refuses READY without at least one `user-confirm-feature-surface` entry in `history[]`, regardless of confidence score.
+
+### AB.4 Scoring rubric penalties (added to §E)
+
+| Gap | Penalty |
+|-----|---------|
+| `feature_surface` empty | −30 |
+| `feature_surface` < 3 items | −25 |
+| `feature_surface` < 5 items AND prompt references known product (`clone` / `like X` / `alternative to` / brand name) | −25 |
+| `feature_surface` populated but `history[]` has no `user-confirm-feature-surface` entry | −20 |
+
+### AB.5 Vacuous-PASS guard (`scripts/intent/declare-intent.sh`)
+
+After existing v8.5 scale_tier/cost guards, on `NEXT_ACTION=READY`:
+
+```
+FS_COUNT      = .declared.feature_surface | length
+FS_CONFIRMED  = [.history[] | select(.source=="user-confirm-feature-surface")] | length
+FS_FLOOR      = 5 if referenced-product detector matched, else 3
+
+if FS_COUNT < FS_FLOOR:
+  → HALT, na_pending_reason: "LAW-INTENT-FS GUARD v8.7.2: feature_surface has $FS_COUNT items (floor=$FS_FLOOR, ref_product_detected=$REF_PROD_DETECTED)"
+
+elif FS_CONFIRMED < 1:
+  → HALT, na_pending_reason: "LAW-INTENT-FS GUARD v8.7.2: feature_surface[] populated but no user-confirm-feature-surface entry in history[]"
+```
+
+Layered on top of LAW-F6 (no vacuous PASS on empty `declared.*` fields) and v8.5 scale/cost guards.
+
+### AB.6 GATE-PFC source-flip
+
+`scripts/spec/product-feature-coverage.sh` priority:
+
+1. **PRIMARY** — read `{atom_dir}/intent/verdict.json`. If `.declared.feature_surface[] | select(.must==true) | length > 0`, iterate each must-item and assert spec text contains `name` OR any `synonyms[*]` OR an explicit `waived: <name>` / `excluded: <name>` line. FAIL emits `source: "declared.feature_surface"` + `missing_features[]`.
+2. **FALLBACK** — only when `feature_surface[]` is unexpectedly empty (which itself signals a Stage 0.1 LAW-INTENT-FS violation upstream): use the static `feature-catalog.json` keyword match for canonical product types. Catalog becomes hint-only.
+3. **N/A** — both empty → `N/A_PENDING_REVIEWER`.
+
+Net effect: user-confirmed feature list works even for atoms the catalog has never seen (Flappy Bird, niche internal tools). Catalog still useful as a hint when feature_surface is missing, but cannot silently pass novel shapes.
+
+### AB.7 Downstream contract
+
+| Stage | Reads | Behavior |
+|-------|-------|----------|
+| 1.A research | `declared.product_type` + `declared.feature_surface[]` | Seeds research queries from anchored feature list. Research expands non-functional context (competitive analysis, stack options, best practices) AROUND the list — never contracts it. |
+| 1.B PRD/BMAD | full `declared` block | PRD must-have section MUST include every `feature_surface[*]` with `must=true`. |
+| 1.C GATE-PFC | `declared.feature_surface[] | must==true` | Primary source-of-truth for spec coverage. Catalog fallback only. |
+| 3 red-team | `declared.out_of_scope[]` | Adversary's allowed weapons (items user explicitly excluded). |
+
+### AB.8 Meta-gate — `intent-feature-surface-test.sh`
+
+5 fixtures driving `declare-intent.sh` with pre-populated `intent.json`:
+
+| # | Fixture | Expected |
+|---|---------|----------|
+| 1 | empty `feature_surface` + plain prompt | HALT (floor=3) |
+| 2 | `feature_surface` = 2 items + plain prompt + user-confirm history | HALT (below floor=3) |
+| 3 | `feature_surface` = 5 items + user-confirm history | READY |
+| 4 | `feature_surface` = 5 items + NO user-confirm history | HALT (vacuous-PASS guard) |
+| 5 | "notion clone" prompt + only 3 items + user-confirm history | HALT (ref-product floor=5) |
+
+All 5/5 PASS first run. Full meta-suite 12/12 PASS.
+
+### AB.9 What's deferred to v8.8
+
+- Auto-feature-extraction from web research (auto-fill `feature_surface[]` from Wikipedia-style sources for famous products).
+- Semantic deduplication ("comments" vs "comment threads" as same item).
+- Negation tests (assert spec OUT-OF-SCOPE items don't accidentally implement).
+- Cross-stage feature-surface trace (verify Stage 4 build covers every `must=true` item with ≥1 test).
+
+### AB.10 Boss-facing summary
+
+| Q | A |
+|---|---|
+| Why is feature_surface now the source-of-truth instead of a catalog? | Catalog-per-product is unbounded. Every novel product (internal tools, niche games, new SaaS shapes) is a missing entry that silently passes. User-confirmed feature list works for any shape. |
+| What stops the agent from inferring a short feature_surface and skipping the interview? | Vacuous-PASS guard. Without a `user-confirm-feature-surface` entry in `history[]`, the script HALTs regardless of confidence. The interview is mechanically falsifiable. |
+| Why 5-item floor for referenced products instead of 3? | A "Notion clone" with 3 features is shallower than a generic "internal tool" with 3 features — the user invoked a known product, so the threshold rises to enforce expansion. |
+| What if the user genuinely wants a one-feature MVP? | They mark every expanded item OUT-OF-SCOPE except the one they want. The interview still runs; the verdict reflects the explicit trim. |
+| Is this skippable in `--fast` mode? | No. Stage 0.1 is exempt from `--fast` skipping (per §A). Fast mode lowers the confidence threshold; it does not bypass the LAW-INTENT-FS guard. |
 
 ---
 

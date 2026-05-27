@@ -9,14 +9,20 @@
 # NO play. Stage 1 declared PASS. The spec was the bug. This gate exists to
 # prevent that class of vacuous PASS.
 #
-# Algorithm:
-#   1. Read atom spec (success_criteria + product description).
-#   2. Match product description against catalog of canonical product types.
-#   3. If match → assert every canonical feature appears in success_criteria
-#      OR is explicitly waived in spec.waivers[] with reason.
-#   4. If no match → emit N/A_PENDING_REVIEWER (LAW-F6: never vacuous PASS).
+# v8.7.2 priority change (LAW-INTENT-FS): the colleague Flappy Bird / Notion
+# test showed that catalog match was unreliable for novel shapes — no entry =
+# silent N/A = advance. Source of truth is now `declared.feature_surface[]`
+# from Stage 0.1 intent verdict (user-confirmed via enumeration interview).
 #
-# Catalog is data, not code — see ./feature-catalog.json. Reviewers extend it.
+# Algorithm (v8.7.2):
+#   1. Read intent/verdict.json → declared.feature_surface[*] where must=true.
+#      → primary source of truth (USER said "I need this").
+#   2. For each must-item, assert spec.md contains name OR any synonym.
+#   3. If feature_surface absent (Stage 0.1 misconfigured), fall back to catalog.
+#   4. Explicit `waived: <name>` lines bypass a missing item.
+#
+# Catalog (./feature-catalog.json) is now hint-only — used in fallback when
+# intent verdict lacks feature_surface[].
 
 set -euo pipefail
 
@@ -98,13 +104,82 @@ if [[ ! -f "$SPEC_FILE" ]]; then
   emit_na "no spec.md at $SPEC_FILE — cannot check feature coverage"
 fi
 
-# ── Load catalog ───────────────────────────────────────────────────
+# Lowercase spec text for matching (used by both feature_surface and catalog paths)
+SPEC_LC=$(tr '[:upper:]' '[:lower:]' < "$SPEC_FILE")
+
+# ── v8.7.2 PRIMARY PATH — declared.feature_surface[] from intent verdict ──
+INTENT_VERDICT="$ATOM_DIR/intent/verdict.json"
+if [[ -f "$INTENT_VERDICT" ]]; then
+  FS_MUST_COUNT=$(jq -r '[.declared.feature_surface[]? | select(.must==true)] | length' "$INTENT_VERDICT" 2>/dev/null || echo 0)
+  if [[ "$FS_MUST_COUNT" -gt 0 ]]; then
+    log "using declared.feature_surface[] from intent verdict (must_count=$FS_MUST_COUNT)"
+    FS_MISSING=()
+    FS_COVERED=()
+    for i in $(seq 0 $((FS_MUST_COUNT - 1))); do
+      fs_name=$(jq -r --argjson i "$i" '[.declared.feature_surface[] | select(.must==true)][$i].name' "$INTENT_VERDICT")
+      found=false
+      # Match name (lowercased) as substring, then each synonym
+      name_lc=$(printf '%s' "$fs_name" | tr '[:upper:]' '[:lower:]')
+      if grep -qF -- "$name_lc" <<<"$SPEC_LC"; then
+        found=true
+      else
+        while IFS= read -r -d '' syn; do
+          [[ -z "$syn" ]] && continue
+          syn_lc=$(printf '%s' "$syn" | tr '[:upper:]' '[:lower:]')
+          if grep -qF -- "$syn_lc" <<<"$SPEC_LC"; then
+            found=true
+            break
+          fi
+        done < <(jq -r --argjson i "$i" '[.declared.feature_surface[] | select(.must==true)][$i].synonyms[]?' "$INTENT_VERDICT" 2>/dev/null | tr '\n' '\0')
+      fi
+      if [[ "$found" == "false" ]]; then
+        if grep -qE "waive[d]? *: *$fs_name|exclude[d]? *: *$fs_name" "$SPEC_FILE"; then
+          found=true
+        fi
+      fi
+      if [[ "$found" == "true" ]]; then
+        FS_COVERED+=("$fs_name")
+      else
+        FS_MISSING+=("$fs_name")
+      fi
+    done
+    FS_COVERED_JSON=$(printf '%s\n' "${FS_COVERED[@]:-}" | jq -R . | jq -s 'map(select(length > 0))')
+    FS_MISSING_JSON=$(printf '%s\n' "${FS_MISSING[@]:-}" | jq -R . | jq -s 'map(select(length > 0))')
+    if [[ ${#FS_MISSING[@]} -gt 0 ]]; then
+      jq -n --argjson missing "$FS_MISSING_JSON" --arg ran_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '{
+          gate: "GATE-PFC",
+          passed: false,
+          verdict: "FAIL",
+          source: "declared.feature_surface",
+          reason: "spec is missing user-declared must-have features (Stage 0.1 feature_surface[*] where must=true)",
+          missing_features: $missing,
+          confidence: 100,
+          ambiguities: [],
+          ran_at: $ran_at
+        }' > "$OUT"
+      exit 1
+    fi
+    jq -n --argjson covered "$FS_COVERED_JSON" --arg ran_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      '{
+        gate: "GATE-PFC",
+        passed: true,
+        verdict: "PASS",
+        source: "declared.feature_surface",
+        covered_features: $covered,
+        confidence: 100,
+        ambiguities: [],
+        ran_at: $ran_at
+      }' > "$OUT"
+    exit 0
+  fi
+  log "intent verdict found but feature_surface has no must=true items — falling back to catalog (Stage 0.1 may have misconfigured)"
+fi
+
+# ── v8.2 FALLBACK PATH — catalog match (hint-only when no feature_surface) ─
 if [[ ! -f "$CATALOG" ]]; then
   emit_na "no feature catalog at $CATALOG — reviewer must populate"
 fi
-
-# Lowercase spec text for matching
-SPEC_LC=$(tr '[:upper:]' '[:lower:]' < "$SPEC_FILE")
 
 # ── Match product type ─────────────────────────────────────────────
 # Catalog: { "<type>": { "keywords": [...], "must_have": [{"name": "...", "synonyms": [...]}], "synonyms": [...] } }

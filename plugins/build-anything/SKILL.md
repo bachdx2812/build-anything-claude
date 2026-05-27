@@ -71,21 +71,22 @@ Before any stage:
 5. Read active plan (if any) from injected `## Plan Context`.
 6. **Resolve operating mode** (see "Operating Modes" below). One of: `bootstrap` (new project from zero) | `atom_on_existing` (task inside existing repo). Default: `atom_on_existing` if `.git` exists, else `bootstrap`.
 
-## Stage 0.1 — INTENT DECLARATION (v8.3, MANDATORY FIRST STAGE)
+## Stage 0.1 — INTENT DECLARATION (v8.3 + v8.7.2 LAW-INTENT-FS, MANDATORY FIRST STAGE)
 
-**No stage may run before Stage 0.1 returns READY.** This is the closed-loop fix for the v8.2 finding that the spec stage produced wrong-product specs because nobody verified the agent's read of the user's brief.
+**No stage may run before Stage 0.1 returns READY.** This is the closed-loop fix for the v8.2 finding that the spec stage produced wrong-product specs because nobody verified the agent's read of the user's brief. **v8.7.2 layer:** Stage 0.1 now MUST extract AND user-confirm `declared.feature_surface[]` (full functional surface). v8.7.1 colleague test shipped under-scoped Flappy Bird (no high-score/restart) + Notion clone (missing comments/realtime/search/history/mentions) because feature enumeration was implicitly delegated to Stage 1.A research. v8.7.2 anchors the user's functional expectations IN THE INTENT VERDICT — research expands non-functional context around an already-confirmed feature list.
 
 Protocol (delegated to `sub-skills/intent/SKILL.md`):
 
 1. Save the raw prompt to `{atom_dir}/intent/raw-prompt.md`.
 2. Run `scripts/intent/declare-intent.sh --prompt <file> --atom-dir <dir> --project-root <dir>` to scaffold `intent.json`.
-3. Agent extracts `declared = { product_type, primary_user, core_flows[], success_criteria[], out_of_scope[], constraints[] }` from prompt.
-4. Agent scores `confidence` 0-100 using the rubric in `sub-skills/intent/SKILL.md` (start at 100, subtract for each gap; floor at 0). **Confidence is the agent's self-report and is gated by LAW-F6 — high confidence with empty `declared.*` fields automatically HALTs.**
-5. Re-run the script to compute `next_action`:
-   - `READY` → confidence ≥ 95 AND vacuous-PASS guard holds → advance to Stage 0.5.
-   - `NEEDS_USER` → present `ambiguities[]` via `AskUserQuestion` (Claude Code) or harness-equivalent. Append answers to `raw-prompt.md` under `## iter-N answers:`. Re-run script. iter++.
-   - `HALT` → iter ≥ 5 OR vacuous-PASS guard triggered. Stop. Report structured open-questions to caller.
-6. Verdict frozen to `{atom_dir}/intent/verdict.json` consumed by orchestrator + downstream stages (1.A reads `product_type`, 1.B reads full declared block, 1.C reads `product_type` again, 3 reads `out_of_scope`).
+3. Agent extracts `declared = { product_type, primary_user, core_flows[], success_criteria[], out_of_scope[], constraints[], scale_tier, cost, team, feature_surface[] }` from prompt. **(v8.7.2)** When prompt references a known product (`clone` / `like X` / `alternative to` / famous brand name), agent first expands `feature_surface[]` to the canonical feature set of that product BEFORE confirming with user.
+4. Agent scores `confidence` 0-100 using the rubric in `sub-skills/intent/SKILL.md` (start at 100, subtract for each gap; floor at 0). **Confidence is the agent's self-report and is gated by LAW-F6 — high confidence with empty `declared.*` fields automatically HALTs. (v8.7.2)** New penalties: `feature_surface` empty (-30), `<3` items (-25), `<5` items with referenced-product detector (-25), populated but unconfirmed (-20).
+5. **(v8.7.2)** Run the **feature enumeration interview**: present draft `feature_surface[]` via `AskUserQuestion` (multi-select REQUIRED / OPTIONAL / OUT-OF-SCOPE per item), apply user answers, append `{ "source": "user-confirm-feature-surface" }` to `history[]`. Re-loop if user added items (max 3 rounds — must converge).
+6. Re-run the script to compute `next_action`:
+   - `READY` → confidence ≥ 95 AND LAW-F6 vacuous-PASS guard holds AND LAW-INTENT-FS guard holds (`feature_surface[]` ≥ floor AND at least one `user-confirm-feature-surface` entry in `history[]`) → advance to Stage 0.5.
+   - `NEEDS_USER` → present `ambiguities[]` via `AskUserQuestion`. Append answers to `raw-prompt.md` under `## iter-N answers:`. Re-run script. iter++.
+   - `HALT` → iter ≥ 5 OR any guard triggered. Stop. Report structured open-questions to caller.
+7. Verdict frozen to `{atom_dir}/intent/verdict.json` consumed by orchestrator + downstream stages (1.A reads `product_type` + `feature_surface[]` to seed research; 1.B reads full declared block, PRD must-have section MUST include every `feature_surface[*]` with `must=true`; **1.C reads `declared.feature_surface[]` filtered to `must=true` as PRIMARY source-of-truth for GATE-PFC**; 3 reads `out_of_scope`).
 
 Mode flags affect threshold/iter: `--fast` (80/2), default (95/5), `--strict` (99/10). `--no-intent-loop` deprecated — must pair with `--ack-no-discovery` + user-authored `intent.json`.
 
@@ -134,12 +135,12 @@ else → emit N/A_PENDING_REVIEWER (LAW-F6: never vacuous PASS)
 | # | Stage | Sub-skill | Gates fired | HALT on |
 |---|-------|-----------|-------------|---------|
 | 0 | Pre-flight | (this file) | config / context | missing config |
-| **0.1** | **Intent Declaration (v8.3)** | `sub-skills/intent` + `scripts/intent/declare-intent.sh` | GATE-INTENT, LAW-CL-95, LAW-F6 | iter ≥ 5 with conf < 95, OR vacuous PASS (conf ≥ 95 with empty declared) |
+| **0.1** | **Intent Declaration (v8.3 + v8.7.2 LAW-INTENT-FS)** | `sub-skills/intent` + `scripts/intent/declare-intent.sh` | GATE-INTENT, LAW-CL-95, LAW-F6, **LAW-INTENT-FS (v8.7.2)** | iter ≥ 5 with conf < 95, vacuous PASS (conf ≥ 95 with empty declared), `feature_surface[]` below floor (3 normal / 5 when prompt references known product), OR `feature_surface[]` populated but `history[]` has no `user-confirm-feature-surface` entry |
 | **0.5** | **Deps bootstrap (v8.2, v8.4)** | `scripts/ensure-deps.sh` | dep-presence | research/uiux missing (bmad-method now informational only) |
 | **1.A** | **Pre-spec product research (v8.2)** | `research` | discovery | research returns 0 sources |
 | **1.B** | **Spec Atom + PRD (L1, v8.4 BMAD-method, v8.5 prod-design)** | `spec` + persona-prompt Task-dispatch (PM, Architect, UX in parallel from `sub-skills/spec/references/personas/`); architect persona now emits BOTH `architecture.md` AND `production-design.md` | GATE-0 brief complete, **GATE-PRD** (artefact body presence) | non-testable criteria, persona artefacts incomplete or stubbed, production-design.md missing/stubbed |
 | **1.B.5** | **Scrum Master atom breakdown (v8.5.2)** | `spec` + SM persona Task-dispatch from `sub-skills/spec/references/personas/sm-persona.md`; emits `{epic_dir}/atom-plan/plan.json` + `stories/story-NN-*.md` | **GATE-SM** (`scripts/spec/sm-breakdown-gate.sh`) — plan.json parseable, every required section in every story, atom size ≤ caps (default 15 files / 800 LOC), every epic `core_flow` covered, DAG (no cycles), every Acceptance Criteria mechanically testable | story exceeds size cap, dependency cycle, untestable AC, core_flow uncovered. **Skipped (N/A_PENDING_REVIEWER) for single-atom epics** when `core_flows[] length == 1` AND `MVP Scope feature count <= 1`. Force via `.build-anything.json.sm.force_breakdown=true` |
-| **1.C** | **Product Feature Coverage (v8.2)** | `spec/product-feature-coverage.sh` | GATE-PFC | declared product type has must-have features missing from spec |
+| **1.C** | **Product Feature Coverage (v8.2 + v8.7.2)** | `spec/product-feature-coverage.sh` | GATE-PFC | spec missing any `declared.feature_surface[]` item where `must=true` (primary source, v8.7.2) OR catalog-fallback must-have absent (legacy hint-path when feature_surface unexpectedly empty) |
 | **1.D** | **Stack Fitness + Production-Design (v8.5)** | `spec/stack-fitness-check.sh` + `spec/production-design-gate.sh` | **GATE-STACK (tier-aware)** + **GATE-PROD-DESIGN** | (STACK) declared stack omits required capabilities for *product × scale_tier*, uses tier-disqualified package (e.g. Cloudinary-all-in-one at scale), or cost under-budgeted vs tier minimum; (PROD-DESIGN) production-design.md missing required section, Capacity model has no digits, Failure modes <3 rows, SLO targets missing p95 or availability |
 | 2 | Schema / Service (L2) | `schema` | GATE-1 allowlist | unauthorised file touch |
 | 3 | Red-team Spec | `spec` (adversarial mode) | spec-attacker pre-check | spec ambiguity remains |
@@ -184,6 +185,7 @@ The skill itself ships with mechanical regression tests under `scripts/meta/`. T
 | `mobile-e2e-test.sh` (v8.6) | 7 fixtures: e2e-maestro web N/A, mobile-rn maestro.enabled=false → FAIL (LAW-F6), mobile-ios no flows_dir → FAIL, mobile-ios empty flows_dir → FAIL; mobile-perms web N/A, mobile-ios AVCaptureDevice without NSCameraUsageDescription → FAIL CRITICAL, mobile-android orphan CAMERA → FAIL HIGH strict. Guards GATE-25-E2E-MOBILE + GATE-MOBILE-PERMS from silent relaxation. |
 | `browser-e2e-test.sh` (v8.7) | 7 fixtures: backend → e2e-browser N/A, desktop-browser-chromium no `binary_path` → FAIL (LAW-F6), binary set but no `journeys_dir` → FAIL, empty journeys dir → FAIL; frontend → wpt N/A, desktop-browser-chromium `wpt.enabled=false` → FAIL (LAW-F6 declared-but-skipped), wpt enabled with empty `subset[]` → FAIL. Guards GATE-25-E2E-BROWSER + GATE-BROWSER-WPT from silent relaxation. |
 | `compensating-coverage-test.sh` (v8.7.1) | 6 fixtures: frontend → N/A (specialized gate exists), library no `compensating_coverage` block → FAIL (LAW-F6 forced on uncovered shape), library enabled but `coverage_cmd` empty → FAIL, library line=92 branch=88 → PASS, library line=75 below 90 floor → FAIL, cli line=0 branch=0 vacuous → FAIL. Guards GATE-COMP-COV from silently passing uncovered project_types. |
+| `intent-feature-surface-test.sh` (v8.7.2) | 5 fixtures: empty `feature_surface` + plain prompt → HALT (below floor=3), 2 items + plain prompt → HALT, 5 items + `user-confirm-feature-surface` history → READY, 5 items missing user-confirm history → HALT (LAW-INTENT-FS vacuous-PASS guard), "notion clone" prompt + only 3 items → HALT (referenced-product floor=5). Guards Stage 0.1 from advancing when user's functional expectations aren't anchored. |
 | `run-all-meta-gates.sh` | Runs every sibling meta-gate and aggregates verdicts. Exit 0 = no regression, 1 = skill regression, 2 = harness rot. Wire into CI / pre-ship. |
 
 ```bash

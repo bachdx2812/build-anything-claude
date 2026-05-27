@@ -79,7 +79,8 @@ if [[ ! -f "$STATE" ]]; then
     "cost": {
       "monthly_usd_ceiling": null,
       "currency": "USD"
-    }
+    },
+    "feature_surface": []
   },
   "ambiguities": [],
   "history": []
@@ -106,6 +107,21 @@ DECL_FLOWS=$(jq -r '.declared.core_flows | length' "$STATE")
 DECL_SUCCESS=$(jq -r '.declared.success_criteria | length' "$STATE")
 DECL_TIER=$(jq -r '.declared.scale_tier // empty' "$STATE")
 DECL_COST=$(jq -r '.declared.cost.monthly_usd_ceiling // empty' "$STATE")
+DECL_FS_COUNT=$(jq -r '.declared.feature_surface | length' "$STATE")
+DECL_FS_CONFIRMED=$(jq -r '[.history[] | select(.source=="user-confirm-feature-surface")] | length' "$STATE")
+
+# v8.7.2 — referenced-product detector. Raw prompt contains "X clone" /
+# "like X" / "alternative to X" / famous-product name → known-product threshold
+# raises feature_surface floor from 3 to 5 to force broader enumeration.
+REF_PROD_DETECTED=0
+RAW_PROMPT_FILE="$INTENT_DIR/raw-prompt.md"
+if [[ -f "$RAW_PROMPT_FILE" ]]; then
+  if grep -qiE '\bclone\b|\blike (a |an )?[A-Z]|\balternative to\b|\bnotion\b|\bfigma\b|\bslack\b|\bdiscord\b|\byoutube\b|\bflappy bird\b|\binstagram\b|\btiktok\b|\bairbnb\b|\buber\b|\bspotify\b|\bnetflix\b|\btwitter\b|\bx\.com\b|\bgithub\b|\bgitlab\b|\bgmail\b|\btrello\b|\bjira\b|\bcoda\b|\bcraft\b|\broam\b|\bobsidian\b' "$RAW_PROMPT_FILE"; then
+    REF_PROD_DETECTED=1
+  fi
+fi
+FS_FLOOR=3
+[[ "$REF_PROD_DETECTED" -eq 1 ]] && FS_FLOOR=5
 
 if [[ -z "$DECL_PRODUCT" ]]; then
   PROBE_AMBIG+=('{"field":"product_type","question":"What is the product type? (e.g. youtube-clone, todo-app, internal-tool — match feature-catalog.json if possible)","required":true}')
@@ -130,6 +146,20 @@ if [[ -z "$DECL_COST" ]]; then
   PROBE_AMBIG+=('{"field":"cost.monthly_usd_ceiling","question":"Monthly cost ceiling in USD? Integer. The stack-fitness gate refuses stacks whose estimated infrastructure cost exceeds this. Be honest — declaring $100 for a youtube-clone forces SQLite+local-disk, which then fails GATE-STACK as toy.","required":true}')
 fi
 
+# v8.7.2 — feature_surface probe. Floor is 3 normally, 5 when the raw prompt
+# references a known product. Below floor → ambiguity, and the agent MUST
+# run the feature enumeration interview described in sub-skills/intent/SKILL.md.
+if [[ "$DECL_FS_COUNT" -lt "$FS_FLOOR" ]]; then
+  if [[ "$REF_PROD_DETECTED" -eq 1 ]]; then
+    PROBE_AMBIG+=('{"field":"feature_surface","question":"Prompt references a known product (clone / like X / alternative to / famous brand). Enumerate the FULL canonical feature set of that product (>= 5 items) as feature_surface[], THEN run the user interview to mark each REQUIRED/OPTIONAL/OUT-OF-SCOPE. Skipping = shipping a hosted-notepad version of Notion.","required":true,"floor":5}')
+  else
+    PROBE_AMBIG+=('{"field":"feature_surface","question":"List every functional capability the build must have (>= 3 items). Each item: { name, must: true|false, synonyms: [...], rationale }. THEN present back to user for REQUIRED/OPTIONAL/OUT-OF-SCOPE confirmation. Incomplete feature_surface = shipped product missing core features.","required":true,"floor":3}')
+  fi
+fi
+if [[ "$DECL_FS_COUNT" -ge "$FS_FLOOR" && "$DECL_FS_CONFIRMED" -lt 1 ]]; then
+  PROBE_AMBIG+=('{"field":"feature_surface.confirmation","question":"feature_surface[] is populated but no user-confirm-feature-surface entry in history[]. Present the list to the user via AskUserQuestion and let them mark each REQUIRED/OPTIONAL/OUT-OF-SCOPE. Then append { iter, source: \"user-confirm-feature-surface\", added: [...], removed: [...] } to history[].","required":true}')
+fi
+
 # Merge probe into state's ambiguities — but do NOT clobber LLM-added ones.
 # Existing ambiguities are kept; probe entries are appended only if not already
 # present (deduped by field name).
@@ -137,7 +167,7 @@ fi
 # Without this, prior-iter ambiguities pile up forever and confidence never
 # converges even after user fills every probe field.
 PROBE_JSON="[$(IFS=,; echo "${PROBE_AMBIG[*]:-}")]"
-jq --argjson probe "$PROBE_JSON" '
+jq --argjson probe "$PROBE_JSON" --argjson fs_floor "$FS_FLOOR" '
   . as $root
   | ($root.ambiguities | map(select(
       .field as $f
@@ -149,6 +179,10 @@ jq --argjson probe "$PROBE_JSON" '
         elif $f == "constraints"              then ($root.declared.constraints              | length) < 1
         elif $f == "scale_tier"               then ($root.declared.scale_tier // "") == ""
         elif $f == "cost.monthly_usd_ceiling" then ($root.declared.cost.monthly_usd_ceiling // null) == null
+        elif $f == "feature_surface"          then ($root.declared.feature_surface          | length) < $fs_floor
+        elif $f == "feature_surface.confirmation" then
+                                                    (($root.declared.feature_surface | length) >= $fs_floor)
+                                                    and ([$root.history[] | select(.source=="user-confirm-feature-surface")] | length) < 1
         else true
         end
     ))) as $kept
@@ -207,6 +241,14 @@ if [[ "$NEXT_ACTION" == "READY" ]]; then
     NEXT_ACTION="HALT"
     PASSED="false"
     NA_REASON="LAW-F6 GUARD v8.5: scale_tier/cost.monthly_usd_ceiling missing — downstream gates would silently default to MVP-mindset"
+  elif [[ "$DECL_FS_COUNT" -lt "$FS_FLOOR" ]]; then
+    NEXT_ACTION="HALT"
+    PASSED="false"
+    NA_REASON="LAW-INTENT-FS GUARD v8.7.2: feature_surface has $DECL_FS_COUNT items (floor=$FS_FLOOR, ref_product_detected=$REF_PROD_DETECTED) — user functional expectations not enumerated. Run the feature enumeration interview before declaring READY."
+  elif [[ "$DECL_FS_CONFIRMED" -lt 1 ]]; then
+    NEXT_ACTION="HALT"
+    PASSED="false"
+    NA_REASON="LAW-INTENT-FS GUARD v8.7.2: feature_surface[] populated but no user-confirm-feature-surface entry in history[] — agent inferred without user confirmation. Present list via AskUserQuestion and record user's REQUIRED/OPTIONAL/OUT-OF-SCOPE marks before declaring READY."
   fi
 fi
 

@@ -29,8 +29,9 @@ Stage 0.1 forces a structured intent declaration with explicit user verification
 | `declared.cost.monthly_usd_ceiling` *(v8.5)* | Integer USD. Stack-fitness gate refuses stacks whose estimated infra cost exceeds this. |
 | `declared.team.size` *(v8.5)* | Integer. Team-fitness check refuses architectures whose ops surface exceeds team capacity (e.g. solo + 5 microservices = HALT). |
 | `declared.team.ops_maturity` *(v8.5)* | `solo` / `small` / `medium` / `enterprise`. Drives observability + deployment topology requirements in production-design.md. |
+| `declared.feature_surface[]` *(v8.7.2)* | Complete enumeration of functional capabilities the user expects. Each item: `{ "name": "string", "must": true\|false, "synonyms": [...], "rationale": "string" }`. Items with `must=true` MUST appear in spec.success_criteria + spec body. Required non-empty. When the prompt references a known product (e.g. "Notion clone", "Flappy Bird"), the agent first expands to the canonical feature set, THEN runs the [feature enumeration interview](#feature-enumeration-interview-v872) to let the user mark each REQUIRED/OPTIONAL/OUT-OF-SCOPE. |
 | `ambiguities[]` | Open questions to ask the user. Cleared as user answers |
-| `history[]` | Append-only log of {iter, change, source: "user"|"agent"} |
+| `history[]` | Append-only log of {iter, change, source: "user" \| "agent" \| "user-confirm-feature-surface"} |
 
 ## Loop protocol (LAW-CL-95)
 
@@ -71,10 +72,29 @@ Start from 100 and subtract:
 | `cost.monthly_usd_ceiling` empty *(v8.5)* | -15 |
 | `team.size` empty *(v8.5)* | -10 |
 | `team.ops_maturity` empty *(v8.5)* | -10 |
+| `feature_surface` empty *(v8.7.2)* | -30 |
+| `feature_surface` < 3 items *(v8.7.2)* | -25 |
+| `feature_surface` < 5 items AND prompt mentions `clone` / `like X` / `alternative to` (referenced-product detector) *(v8.7.2)* | -25 |
+| `feature_surface` populated but `history[]` has no `user-confirm-feature-surface` entry *(v8.7.2)* | -20 |
 
 Floor at 0. Result is what gets written to `confidence` field. **Do not inflate: a higher score does not get you to Stage 1 faster — it gets you a worse build.**
 
 Adversarial check before declaring confidence ≥ 95: re-read the prompt and ask "if a malicious paraphraser rewrote my `declared` block to be 80% different but still satisfy all my parsed criteria, would the user be happy?" If the answer is "maybe" or "no", confidence is at most 90.
+
+## Feature enumeration interview (v8.7.2)
+
+Why this exists: the v8.7.1 colleague test shipped a "Flappy Bird" with no high-score/restart and a "Notion clone" missing comments/realtime/search/version-history/mentions. Both passed Stage 0.1 because the rubric checked `core_flows` count, not functional completeness. Delegating feature discovery to Stage 1.A (research) means the user's expectations are NEVER anchored in the intent verdict — every downstream stage builds whatever the agent picks. v8.7.2 fixes the source.
+
+After the first extraction pass, the agent MUST run a feature interview before declaring confidence ≥ threshold:
+
+1. **Draft `feature_surface[]`** from the raw prompt. Include items the user literally said.
+2. **Expand for known-product references.** If the prompt contains `clone` / `like X` / `alternative to` / a famous product name (Notion, Figma, YouTube, Flappy Bird, Slack, …), the agent MUST expand the draft to the canonical feature set of that product, even if the user did not list those items. Better to over-enumerate then let the user trim than to under-enumerate and ship without comments/realtime/history.
+3. **Present draft via `AskUserQuestion`** (Claude Code) or harness-equivalent in a tri-select format per item: `REQUIRED` / `OPTIONAL` / `OUT-OF-SCOPE`. Include an "add more" prompt at the bottom.
+4. **Apply user answers.** Items marked REQUIRED → `must=true`. OPTIONAL → `must=false`. OUT-OF-SCOPE → moved to `declared.out_of_scope[]`. Added items → re-classified next round.
+5. **Append `{ "iter": N, "source": "user-confirm-feature-surface", "added": [...], "removed": [...] }`** to `history[]`.
+6. **Re-loop if the user added items** (max 3 rounds — enumeration must converge). On round 3 with still-open additions → HALT with `na_pending_reason: "feature enumeration did not converge in 3 rounds"`.
+
+The interview is NOT optional. The vacuous-PASS guard refuses to mark intent READY without at least one `user-confirm-feature-surface` entry in `history[]`, regardless of confidence score.
 
 ## How the agent invokes this stage
 
@@ -109,13 +129,21 @@ The script handles iter counter, snapshot, verdict logic, and LAW-F6 vacuous-PAS
 
 ## Vacuous-PASS guard
 
-Even if confidence ≥ 95, the script HALTs if any of `product_type`, `primary_user`, `core_flows[0]`, `success_criteria[0]` is empty. Confidence is a self-report; this guard makes the self-report falsifiable.
+Even if confidence ≥ 95, the script HALTs if any of these vacuous conditions hold:
+
+- `product_type`, `primary_user`, `core_flows[0]`, `success_criteria[0]` empty (v8.3).
+- `scale_tier` or `cost.monthly_usd_ceiling` missing (v8.5).
+- `feature_surface[]` has fewer than 3 items (v8.7.2).
+- `feature_surface[]` non-empty but `history[]` has no `user-confirm-feature-surface` entry (v8.7.2) — agent inferred without user confirmation.
+- Prompt mentions a referenced product (`clone` / `like X` / `alternative to`) and `feature_surface[]` has fewer than 5 items (v8.7.2) — known-product threshold.
+
+Confidence is a self-report; these guards make the self-report falsifiable.
 
 ## Downstream contract
 
-Stage 1.A (research) reads `intent.json.declared.product_type` to seed research queries.
-Stage 1.B (PRD/BMAD) consumes the full `declared` block as the PM brief.
-Stage 1.C (GATE-PFC) matches `declared.product_type` against `feature-catalog.json`.
+Stage 1.A (research) reads `intent.json.declared.product_type` AND `feature_surface[]` to seed research queries — research expands non-functional context around the anchored feature list, never contracts it.
+Stage 1.B (PRD/BMAD) consumes the full `declared` block as the PM brief; PRD must-have section MUST include every `feature_surface[*]` with `must=true`.
+Stage 1.C (GATE-PFC, v8.7.2) checks spec coverage **against `declared.feature_surface[]` items where `must=true`** (primary source of truth). Catalog (`feature-catalog.json`) is consulted only as a fallback hint when `feature_surface[]` is unexpectedly empty (which would itself be a Stage 0.1 LAW-INTENT-FS violation).
 Stage 3 (red-team spec) is given `out_of_scope[]` as the adversary's allowed weapons.
 
 If `declared` is wrong, every downstream stage is built on sand. That is the entire reason this stage is hard-gated.
@@ -141,6 +169,6 @@ If user answers contradict prior LLM extraction, the agent MUST:
 - Does not write the spec — that is Stage 1.B (PRD/BMAD).
 - Does not pick a stack — that is Stage 1.B (Architect agent).
 - Does not finalize success criteria as test cases — that is Stage 1 (spec atom).
-- Does not enumerate features — that is Stage 1.A (ck:research).
+- Does not deep-research the product domain — that is Stage 1.A (ck:research). *(v8.7.2 note: this stage DOES enumerate `feature_surface[]` interactively with the user. Stage 1.A then expands non-functional context — competitive analysis, stack options, best practices — around that anchored feature list.)*
 
 This stage answers one question: **does the agent understand what the user wants?** Everything else flows from a high-confidence yes.
