@@ -23,11 +23,12 @@ What the repo contains and why each agent needs it:
 
 | Path in repo | Contents | Why the agent must read it |
 |---|---|---|
-| `plugins/build-anything/scripts/spec/*.sh` | GATE-PFC, GATE-STACK (tier-aware), GATE-PROD-DESIGN, GATE-PRD, intent declaration | Stage 1.B–1.D enforcement — without these scripts the agent cannot verify spec completeness |
+| `plugins/build-anything/scripts/spec/*.sh` | GATE-PFC, GATE-STACK (tier-aware), GATE-PROD-DESIGN, GATE-PRD, **GATE-SM (v8.5.2)**, intent declaration | Stage 1.B–1.D enforcement — without these scripts the agent cannot verify spec completeness or epic→atom decomposition |
+| `plugins/build-anything/scripts/orchestrator/multi-atom-loop.sh` (v8.5.2) | Epic iterator: prints execution plan, tracks per-story seal status, picks next eligible atom by sealed-deps | Stage 1.B.5 → /build-anything multi-atom loop after GATE-SM PASS; provides `{epic_dir}/atom-plan/run-log.json` ground truth |
 | `plugins/build-anything/scripts/intent/declare-intent.sh` | Intent scaffold + verdict scoring | Stage 0.1 — required first stage; no build is legal without `intent/verdict.json` |
 | `plugins/build-anything/scripts/orchestrator/run-all-gates.sh` | Master gate dispatcher | Defines exact stdout-integer + JSON-verdict contract every other gate must honour |
 | `plugins/build-anything/scripts/meta/*.sh` | Skill self-regression suite | Proves the gates themselves do not silently rot (LAW-F6 + LAW-CL-95 invariants) |
-| `plugins/build-anything/sub-skills/spec/references/personas/{pm,architect,ux}.md` | BMAD-method persona prompts | Stage 1.B — PM / Architect / UX persona artefacts; architect persona emits both `architecture.md` AND `production-design.md` |
+| `plugins/build-anything/sub-skills/spec/references/personas/{pm,architect,ux,sm}-persona.md` | BMAD-method persona prompts | Stage 1.B — PM / Architect / UX produce PRD + architecture + ux-spec; **Stage 1.B.5 — SM (v8.5.2) breaks epic → atom-plan/plan.json + per-story files** |
 | `plugins/build-anything/sub-skills/implementer/references/personas/{dev-backend,dev-frontend,dev-tests}.md` | BMAD-method dev persona prompts | Stage 4 — parallel implementer dispatch + GATE-IMPL coverage |
 | `plugins/build-anything/scripts/spec/feature-catalog.json` | Product feature catalog (9 product types × 4 scale tiers) | Stage 1.C / 1.D — must-have features per product type, scale-tier capability matrix, tier-disqualified packages |
 
@@ -36,7 +37,7 @@ What the repo contains and why each agent needs it:
 1. `git clone https://github.com/bachdx2812/build-anything-claude && cd build-anything-claude`
 2. Inspect `plugins/build-anything/SKILL.md` for the 17-stage flow.
 3. Treat every `scripts/**/*.sh` as the binding interpretation of the corresponding law/gate in this doc. If the doc and the script disagree, the **script wins** (the script is what the meta-suite tests against).
-4. Run `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh` as a sanity check before adopting any gate locally — expect `pass=7 fail=0`.
+4. Run `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh` as a sanity check before adopting any gate locally — expect `pass=8 fail=0` (v8.5.2 added `sm-breakdown-test.sh`).
 5. Treat the repo as **read + adapt**: the bash gates are stack-agnostic and intended to be invoked directly by any harness (Comet, Devin's shell, Kimi, Claude Code, plain CI). No Claude-specific tooling is required to run them.
 
 The doc you are reading + this repo together = the UBS executable charter. Reading only one of them is not enough.
@@ -210,6 +211,7 @@ When body is empty, gate MUST emit `verdict: "N/A_PENDING_REVIEWER"` (passed: nu
 ### B.4 Product + UI gates
 
 - **GATE-PRD PRD / ARCHITECTURE / UX ARTEFACT BODY (v8.4)** — Stage 1.B BMAD-method enforcement. Three personas (PM, Architect, UX) dispatched in parallel via Claude Code Task tool from prompt files under `sub-skills/spec/references/personas/`. Each persona owns a single artefact (`prd.md`, `architecture.md`, `ux-spec.md`) with mandatory sections + body lines. FAIL if any required section header has no content following it (LAW-F6 applied at spec layer: a stub header is never a PASS). Fast mode allows single-persona combined `prd.md`. Method-not-invocation: the optional `npx bmad-method install` is informational; `npx bmad-method run` does NOT exist. Script: `spec/bmad-prd-gate.sh`. Detail: §U.
+- **GATE-SM BMAD-METHOD SCRUM-MASTER BREAKDOWN (v8.5.2)** — Stage 1.B.5 enforcement of the SM persona's epic→atom breakdown. Verifies `{epic_dir}/atom-plan/plan.json` is parseable + has required keys (`epic`, `stories[]`, `execution_order[]`); every story file exists at the declared path under `atom-plan/stories/` with all six required sections + non-empty bodies (Atom brief, Acceptance Criteria, Dependencies, Allowlist hint, Estimated scope, Out-of-scope); `estimated_files ≤ sm.max_files_per_atom` (default 15) AND `estimated_loc ≤ sm.max_loc_per_atom` (default 800); every `intent.declared.core_flows[]` covered by at least one `story.core_flows[]`; depends_on graph is a DAG (cycle detection via POSIX `tsort` stderr signature, macOS-compatible); every Acceptance-Criteria line contains a testable shape (HTTP method+path, status code, CSS/RTL locator, SQL invariant, `expect(…)`, or `PRD-AC-NN`). N/A_PENDING_REVIEWER when `plan.json` is absent (single-atom epic — see Section X for skip heuristic). Catches "PM/Architect produced beautiful prose but nobody broke the epic into atom-sized stories" — the v8.5 hole where multi-feature epics fell back to the operator's manual judgement. Script: `spec/sm-breakdown-gate.sh`. Detail: §X.
 - **GATE-PFC PRODUCT FEATURE COVERAGE** — `declared.product_type` matches a feature-catalog row; every catalog-required feature is present in `success_criteria[]`. Catches "YouTube clone with no upload" class of spec failure. Script: `spec/product-feature-coverage.sh`.
 - **GATE-STACK STACK FITNESS (v8.4 → v8.5)** — declared `stack.*` block in atom brief satisfies every `required_capabilities[]` row in the catalog for the matched product type. Each capability has `accept_values`, `disqualified_values`, `disqualified_packages`, optional `disqualified_schema_columns`. FAIL when a serious product (e.g. `youtube-clone`) declares a toy stack (e.g. `better-sqlite3` + `multer`-to-local-disk + no transcoder + no CDN). Catches "YouTube clone on a laptop that cannot serve a second concurrent upload" class of spec failure — the v8.3 hole. Fuzzy match: `youtube-clone-mvp` → `youtube-clone`. **v8.5 tier-aware:** when `intent.declared.scale_tier` is set, the catalog row `scale_tiers[<tier>]` is used instead of the flat `stack_fitness` block; required capabilities, disqualified packages, and cost band all escalate per tier. Additional tier-alignment FAIL condition: `cost.monthly_usd_ceiling < cost_band.min_usd_month` (under-budgeted for tier). Script: `spec/stack-fitness-check.sh`. Exempt from `--fast`. Detail: §T (v8.4 base) + §W (v8.5 tier dimension).
 - **GATE-PROD-DESIGN PRODUCTION DESIGN (v8.5)** — Stage 1.D enforcement of architect persona's `production-design.md`. Verifies eight required sections present with body content + min-content rules: (1) `Capacity model` body MUST contain digits (no adjective-only capacity claims), (2) `Failure modes` table MUST have ≥3 data rows, (3) `Tenancy model` body present, (4) `Data lifecycle` body present, (5) `SLO targets` body MUST contain `p95` and (`%` or `availability`), (6) `Deployment topology` body present, (7) `Observability story` body present, (8) `Boring-tech justification` body present. FAIL on any missing section or content rule; N/A_PENDING_REVIEWER if the file is absent (architect persona not yet run for the atom). Catches "shipped an MVP-thinking architecture dressed as a production design" — the v8.4 hole where no capacity numbers were ever written down. Script: `spec/production-design-gate.sh`. Exempt from `--fast`. Detail: §W.
@@ -388,6 +390,7 @@ Stage 0.1   INTENT DECLARATION            LAW-CL-95 loop until READY
 Stage 0.5   Deps bootstrap                research / uiux primed (bmad informational, v8.4)
 Stage 1.A   Research                      ck:research per product_type
 Stage 1.B   Spec Atom + PRD + GATE-PRD    BMAD-method personas (PM + Architect + UX) dispatched via Task tool; architect emits architecture.md + production-design.md (v8.5)
+Stage 1.B.5 SM breakdown + GATE-SM        BMAD-method Scrum-Master persona breaks epic → atom-plan/plan.json + story-NN-*.md (v8.5.2) — skipped when single-atom epic
 Stage 1.C   GATE-PFC                      feature catalog coverage
 Stage 1.D   GATE-STACK + GATE-PROD-DESIGN stack fitness (tier-aware v8.5) + production-design.md content rules (v8.5)
 Stage 2     Schema / Service              OpenAPI + DDL + invariants.sql
@@ -790,13 +793,18 @@ Exit codes:
 
 ## Section O — Meta-Gates (Skill Self-Regression)
 
-The skill itself has a regression spine. Three meta-gates verify the skill cannot regress against its own invariants:
+The skill itself has a regression spine. Eight meta-gates verify the skill cannot regress against its own invariants:
 
 | Meta-gate | Asserts | Script |
 |-----------|---------|--------|
 | `no-vacuous-pass-test.sh` | LAW-F6 holds — empty atom produces 0 PASS verdicts | `meta/no-vacuous-pass-test.sh` |
 | `real-atom-smoke-test.sh` | Real atom produces ≥3 PASS with `confidence=100`, 0 ERROR, no PASS with `confidence=null|0`; `--confidence-floor` still fires | `meta/real-atom-smoke-test.sh` |
 | `intent-preflight-test.sh` | GATE-INTENT preflight refuses missing/NEEDS_USER verdict.json; `--skip-intent-check` bypasses | `meta/intent-preflight-test.sh` |
+| `bmad-prd-test.sh` | GATE-PRD enforces multi-persona PRD/architecture/ux-spec bodies; stub headers FAIL | `meta/bmad-prd-test.sh` |
+| `stack-fitness-test.sh` | GATE-STACK (flat + tier-aware) catches required-capability gaps, disqualified packages, cost-band misalignment | `meta/stack-fitness-test.sh` |
+| `production-design-test.sh` | GATE-PROD-DESIGN: 8 fixtures (absent → N/A, full → PASS, missing-section → FAIL, no-digits Capacity → FAIL, <3 Failure modes → FAIL, missing p95 → FAIL) | `meta/production-design-test.sh` |
+| `implementer-coverage-test.sh` | GATE-IMPL: silent-drop, allowlist-violation, core_flow-coverage, persona-status missing all detected | `meta/implementer-coverage-test.sh` |
+| `sm-breakdown-test.sh` (v8.5.2) | GATE-SM: 7 fixtures (no plan → N/A, valid → PASS, missing section → FAIL, oversized → FAIL, uncovered flow → FAIL, dependency cycle → FAIL, untestable AC → FAIL) | `meta/sm-breakdown-test.sh` |
 
 One-line runner: `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh`. Auto-discovers every sibling `*.sh` meta-gate. Exit 0 = no regression, 1 = skill regression (LAW-F6 or LAW-CL-95 or GATE-INTENT broken), 2 = harness rot (a meta-gate itself broken). New meta-gates added to `scripts/meta/` are picked up without code changes.
 
@@ -1373,6 +1381,161 @@ Both wired into `scripts/meta/run-all-meta-gates.sh`. v8.5 meta suite size: 7 ga
 | What does the tier extension to GATE-STACK prevent? | (a) MVP stacks shipped against scale briefs because the catalog only had one row; (b) scale stacks recommended to solo founders who cannot operate them; (c) tier ↔ budget mismatches that get discovered three months in. |
 | Why is `--fast` not allowed to skip these? | Fast mode is for prototypes. Prototypes can target the mvp tier — that is itself a tier choice. Skipping the gate is not skipping the tier. |
 | Can we customise the tier definitions per project? | The catalog is editable. A custom `_scale_tiers_meta` override file under `.build-anything/` could be wired up if a project needs different ranks; out of scope for v8.5 default. |
+
+---
+
+## Section X — BMAD-method Scrum-Master breakdown (v8.5.2 — GATE-SM)
+
+### X.1 Motivation — the v8.5 atom-decomposition gap
+
+v8.4 added BMAD personas at Stage 1.B (PM + Architect + UX) and Stage 4 (Dev-Backend + Dev-Frontend + Dev-Tests). v8.5 added system-design + scale-tier discipline. But one BMAD role remained un-internalised: the **Scrum Master**, whose canonical responsibility in BMAD is to read PRD + architecture + UX-spec and break the epic into **developer-ready stories** with explicit acceptance criteria, dependencies, allowlist hints, and size caps.
+
+Without an SM stage, multi-feature briefs (e.g. "YouTube-clone with upload, watch, search, comments") were treated as **single atoms**. The operator had to mentally decompose the epic on the fly and feed each piece to `/build-anything` as a separate invocation. This: (a) defeated the agent's ability to verify decomposition itself was sound (no DAG check, no per-story size cap, no testable-AC enforcement); (b) reintroduced single-author bias at the breakdown layer (the same operator chose what an "atom" meant for every epic); (c) made `intent.core_flows[]` coverage a manual checklist rather than a mechanical gate.
+
+v8.5.2 closes this gap. Stage 1.B.5 dispatches the SM persona between GATE-PRD (Stage 1.B) and GATE-PFC (Stage 1.C). When the epic is multi-atom, the SM emits a plan + per-story files; GATE-SM verifies the breakdown is parseable, sized correctly, covers every core_flow, and forms a DAG with testable ACs. When the epic is single-atom (one feature, one core_flow), the stage is a clean N/A_PENDING_REVIEWER — no SM dispatch, no plan.json, no penalty.
+
+### X.2 Stage placement
+
+```
+... Stage 1.B  PM + Architect + UX personas → prd.md + architecture.md + ux-spec.md + production-design.md
+              GATE-PRD verifies bodies
+                          ▼
+    Stage 1.B.5 (NEW)   SM persona reads everything above + intent → plan.json + story-NN-*.md
+                        GATE-SM verifies breakdown
+                          ▼
+... Stage 1.C  GATE-PFC verifies declared product type's must-have features are in spec
+... Stage 1.D  GATE-STACK (tier-aware) + GATE-PROD-DESIGN
+```
+
+The SM stage runs **after** PRD/Architecture/UX so it can read all of them, and **before** PFC/STACK so feature-coverage and tier-fitness can be verified per-story rather than per-epic-blob.
+
+### X.3 SM persona contract
+
+Persona prompt: `sub-skills/spec/references/personas/sm-persona.md`.
+
+Inputs (the persona MUST read all of these before emitting any output):
+- `{epic_dir}/intent/verdict.json` — `declared.product_type`, `core_flows[]`, `success_criteria[]`, `out_of_scope[]`, `constraints[]`
+- `{epic_dir}/prd.md` — Vision, MVP Scope, Acceptance Criteria, User Journeys
+- `{epic_dir}/architecture.md` — Stack, Components, Data model, API surface
+- `{epic_dir}/production-design.md` (when present) — Capacity model, SLO targets
+- `{epic_dir}/ux-spec.md` — Page inventory, Per-page UX
+- `{epic_dir}/research/product-features-<slug>.md` — feature catalogue for product type
+
+Outputs (the persona MUST emit both):
+- `{epic_dir}/atom-plan/plan.json` — machine-readable plan (see §X.4)
+- `{epic_dir}/atom-plan/stories/story-NN-<slug>.md` — one per `plan.json.stories[]`
+
+### X.4 plan.json shape (the GATE-SM contract)
+
+```json
+{
+  "epic": "<product_type or epic_slug>",
+  "epic_dir": "<absolute path>",
+  "total_stories": <int>,
+  "execution_order": ["story-01-…", "story-02-…", ...],
+  "stories": [
+    {
+      "id": "story-NN-<slug>",
+      "slug": "<kebab-slug>",
+      "file": "atom-plan/stories/story-NN-<slug>.md",
+      "atom_brief": "<one-paragraph atom prompt — what /build-anything receives>",
+      "depends_on": ["story-NN-…", ...],
+      "estimated_files": <int>,
+      "estimated_loc": <int>,
+      "core_flows": ["<flow>", ...],
+      "journeys_covered": ["J-NN", ...],
+      "allowlist_hint": ["<glob>", ...],
+      "status": "pending"
+    },
+    ...
+  ]
+}
+```
+
+`status` field is `pending` at plan time; the multi-atom orchestrator updates it to `in_progress` / `sealed` / `failed` per story as the loop progresses (§X.7).
+
+### X.5 Per-story file required sections
+
+Every `story-NN-<slug>.md` MUST contain these six sections, each with at least one non-blank body line:
+
+| Section | Body requirement |
+|---------|------------------|
+| `## Atom brief` | One paragraph re-stating the atom prompt + product_type + scale_tier |
+| `## Acceptance Criteria` | Numbered list; every line MUST contain a testable shape (regex: `(GET\|POST\|PUT\|PATCH\|DELETE) +[/A-Za-z]\|status (code )?[0-9]{3}\|expect\(\|getByTestId\|getByRole\|SELECT \|INVARIANT\|data-testid\|PRD-AC-[0-9]+`) |
+| `## Dependencies` | List of story IDs this atom depends on, OR "None — root story" |
+| `## Allowlist hint` | Suggested file globs the atom is allowed to touch |
+| `## Estimated scope` | `files: <N>`, `loc: <N>`, `core_flows: [...]`, `journeys: [...]` |
+| `## Out-of-scope (for this atom)` | Deferred-to-other-story items |
+
+LAW-F6 applies: stub headers (no body within the next 15 lines) → FAIL.
+
+### X.6 Gate mechanical checks (script: `spec/sm-breakdown-gate.sh`)
+
+| # | Check | FAIL condition |
+|---|-------|----------------|
+| 1 | plan.json parseable | `jq -e . plan.json` fails |
+| 2 | required keys | `epic`, `stories`, `execution_order` missing |
+| 3 | non-empty stories | `stories.length == 0` (vacuous, LAW-F6) |
+| 4 | each story file exists | declared `file` path not on disk |
+| 5 | each story has 6 sections | any required section header missing |
+| 6 | each section has body | header present but next 15 lines blank-or-header (LAW-F6) |
+| 7 | size cap files | `estimated_files > sm.max_files_per_atom` (default 15) |
+| 8 | size cap loc | `estimated_loc > sm.max_loc_per_atom` (default 800) |
+| 9 | core_flows coverage | any `intent.declared.core_flows[]` not in any `story.core_flows[]` |
+| 10 | DAG (no cycles) | `tsort` stderr contains `cycle in data` |
+| 11 | testable AC | any AC line lacks the testable-shape regex |
+
+Verdict:
+- All checks pass → `PASS` (exit 0, confidence 95)
+- `plan.json` absent → `N/A_PENDING_REVIEWER` (exit 0, confidence 0)
+- Any check fails → `FAIL` (exit 1, confidence 100)
+
+Output: `{epic_dir}/gate-spec/sm-breakdown.json` (canonical contract — see Appendix).
+
+### X.7 Multi-atom orchestrator loop
+
+When GATE-SM PASSes, the orchestrator switches to **multi-atom loop mode**. Script: `scripts/orchestrator/multi-atom-loop.sh`. Modes:
+
+| Flag | Effect |
+|------|--------|
+| `--print-plan` | Emit JSON Lines: one row per story in `execution_order`, each row = `{id, atom_brief, depends_on, allowlist_hint, core_flows}` |
+| `--next` | Print the next pending story whose all `depends_on` are sealed; exit 1 if none |
+| `--record-seal --story-id <id> --status-value <sealed\|failed\|in_progress> [--atom-dir <path>] [--merkle-root <hash>]` | Update `{epic_dir}/atom-plan/run-log.json` |
+| `--status` | Summary: `{total, sealed, failed, in_progress, pending, percent_complete}` |
+
+The driver (boss-side Comet, or local Claude) invokes `/build-anything` per row, recording seal status back via `--record-seal`. The loop terminates when (a) all stories sealed, (b) any story fails 2 retries → halt with failed-story manifest, (c) cycle in remaining `depends_on` (defensive — GATE-SM already catches this).
+
+### X.8 Skip heuristic (single-atom epics)
+
+GATE-SM is N/A_PENDING_REVIEWER (no penalty) when **all** of these hold:
+- `intent.declared.core_flows[].length == 1`
+- `prd.md ## MVP Scope` lists ≤ 1 feature
+- Operator did not set `.build-anything.json.sm.force_breakdown = true`
+
+In that case the SM persona is NOT dispatched, no plan.json is written, and the orchestrator advances to Stage 1.C with the original single atom. Forcing breakdown on a single-flow epic is allowed (operator override) but yields a degenerate 1-story plan.
+
+### X.9 Why this prevents the v8.5 failure mode
+
+Without GATE-SM:
+- Epic "YouTube-clone with upload + watch + search + comments" → operator splits in head → builds upload atom → forgets comments → ships incomplete product, blames the agent
+- No mechanical check that every core_flow is covered by some atom
+- No size-cap enforcement (operator says "this 50-file atom is fine, trust me")
+- No DAG (operator dispatches atoms in wrong order, hits "depends on schema that doesn't exist yet")
+
+With GATE-SM:
+- Breakdown is a verified contract: every flow in `intent` MUST appear in some `story.core_flows[]`, or breakdown FAILs before any code is written
+- Size cap is checked mechanically: a story with `estimated_files: 50` FAILs the gate
+- DAG is checked via `tsort`: A→B→A is rejected; orchestrator loop knows safe execution order
+- Testable AC is regex-enforced: "Users should feel happy" FAILs; "POST /todos returns 201 with `data-testid=created-todo`" PASSes
+
+### X.10 Boss-facing summary
+
+| Question | Answer |
+|----------|--------|
+| What does GATE-SM prevent? | Multi-feature briefs being treated as single atoms; missing decomposition; cycles in dependency order; size-blown atoms that can't be tested in one cycle. |
+| When is the SM stage skipped? | Single-flow, single-feature epics. The gate writes N/A_PENDING_REVIEWER and the loop continues normally with the original atom. Override via `sm.force_breakdown = true`. |
+| Does this slow every project down? | No. Single-atom epics skip the stage. Multi-feature epics gain a 1× persona round-trip that saves N× rework downstream by catching missing flows and oversized atoms before code is written. |
+| Is this BMAD-faithful? | Yes — Scrum Master is the canonical BMAD role for epic→story breakdown. v8.4 internalised PM/Architect/UX + Dev-BE/FE/Tests; v8.5.2 closes the loop by internalising SM. |
 
 ---
 

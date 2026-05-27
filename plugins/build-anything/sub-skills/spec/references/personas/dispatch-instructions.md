@@ -33,6 +33,27 @@ When the skill reaches Stage 1.B, Claude (the orchestrator) MUST:
 6. If gate FAILs: identify which persona's artefact is incomplete, dispatch that single persona again with the gate's `details.artefacts[].status` as context. Max 2 retries per persona.
 7. If 2 retries still FAIL → HALT, escalate to user with structured failure (which persona, which section).
 
+### Stage 1.B.5 — Scrum Master breakdown (v8.5.2)
+
+After GATE-PRD passes AND **when the epic spans more than one atom** (heuristic: `prd.md ## MVP Scope` has >1 feature, OR `intent/verdict.json.core_flows[]` has >2 entries, OR user explicitly requests multi-atom plan):
+
+8. Dispatch SM persona via `Task` tool (one call):
+   ```
+   Task 4 — SM persona
+   prompt: contents of sub-skills/spec/references/personas/sm-persona.md
+           + "Epic dir: {epic_dir} (this atom_dir at the epic level).
+              Project root: {project_root}. PRD + architecture + ux-spec
+              already exist. Produce {epic_dir}/atom-plan/plan.json plus
+              {epic_dir}/atom-plan/stories/story-NN-*.md per the contract."
+   ```
+9. Run `scripts/spec/sm-breakdown-gate.sh --epic-dir {epic_dir} --project-root {project_root}`.
+10. If gate FAILs: re-dispatch SM persona with `gate-spec/sm-breakdown.json.details` as input. Max 2 retries. After 2 retries FAIL → HALT with the failing `details.{missing_sections, stub_sections, oversized, untestable_acceptance_criteria, dependency_cycles}` as structured reason.
+11. If gate PASSes: the orchestrator enters multi-atom loop mode (`scripts/orchestrator/multi-atom-loop.sh --print-plan --epic-dir {epic_dir}` emits the per-story execution rows; the outer driver invokes `/build-anything` per row, recording seal status via `--record-seal`).
+
+### When SM stage is SKIPPED
+
+For genuinely single-atom epics (single feature, 1 core_flow, <15 files), the SM stage is N/A — the GATE-SM script emits `N/A_PENDING_REVIEWER` when `atom-plan/plan.json` is absent and the orchestrator proceeds to Stage 1.C with the original atom. Default heuristic: skip SM when `core_flows[] length == 1` AND `MVP Scope feature count <= 1`. Operator can force-enable via `.build-anything.json.sm.force_breakdown=true`.
+
 ## Why dispatching via Task is the right invocation
 
 - Each persona runs in a fresh context — no cross-pollination of priors, which is the failure mode v8.1 hit (single-author spec).
