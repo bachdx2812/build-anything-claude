@@ -133,21 +133,39 @@ fi
 # Merge probe into state's ambiguities — but do NOT clobber LLM-added ones.
 # Existing ambiguities are kept; probe entries are appended only if not already
 # present (deduped by field name).
+# v8.5 fix: drop stale ambiguities whose underlying field has been answered.
+# Without this, prior-iter ambiguities pile up forever and confidence never
+# converges even after user fills every probe field.
 PROBE_JSON="[$(IFS=,; echo "${PROBE_AMBIG[*]:-}")]"
 jq --argjson probe "$PROBE_JSON" '
-  .ambiguities as $existing
-  | [$probe[] | select(.field as $f | ($existing | map(.field) | index($f) | not))] as $new
-  | .ambiguities = ($existing + $new)
+  . as $root
+  | ($root.ambiguities | map(select(
+      .field as $f
+      | if   $f == "product_type"             then ($root.declared.product_type // "") == ""
+        elif $f == "primary_user"             then ($root.declared.primary_user // "") == ""
+        elif $f == "core_flows"               then ($root.declared.core_flows               | length) < 1
+        elif $f == "success_criteria"         then ($root.declared.success_criteria         | length) < 1
+        elif $f == "out_of_scope"             then ($root.declared.out_of_scope             | length) < 1
+        elif $f == "constraints"              then ($root.declared.constraints              | length) < 1
+        elif $f == "scale_tier"               then ($root.declared.scale_tier // "") == ""
+        elif $f == "cost.monthly_usd_ceiling" then ($root.declared.cost.monthly_usd_ceiling // null) == null
+        else true
+        end
+    ))) as $kept
+  | ([$probe[] | select(.field as $f | ($kept | map(.field) | index($f) | not))]) as $new
+  | $root | .ambiguities = ($kept + $new)
 ' "$STATE" > "$STATE.tmp" && mv "$STATE.tmp" "$STATE"
 
 # ── Score (basic floor) ─────────────────────────────────────────────
 # Agent OVERWRITES this with its own confidence score; we only seed a floor so
 # a brand-new intent.json with all fields null does not accidentally read as
 # confidence=100. The agent reasoning is authoritative.
+# v8.5 fix: always take max(current, floor) so confidence rises when the user
+# fills probe fields. Without this, stale low scores persist after answers.
 REMAINING_AMBIG=$(jq -r '.ambiguities | length' "$STATE")
-if [[ "$CONFIDENCE" -eq 0 ]]; then
-  FLOOR_CONF=$((100 - REMAINING_AMBIG * 25))
-  [[ $FLOOR_CONF -lt 0 ]] && FLOOR_CONF=0
+FLOOR_CONF=$((100 - REMAINING_AMBIG * 25))
+[[ $FLOOR_CONF -lt 0 ]] && FLOOR_CONF=0
+if [[ "$CONFIDENCE" -lt "$FLOOR_CONF" ]]; then
   jq --argjson c "$FLOOR_CONF" '.confidence = $c' "$STATE" > "$STATE.tmp" && mv "$STATE.tmp" "$STATE"
   CONFIDENCE=$FLOOR_CONF
 fi
