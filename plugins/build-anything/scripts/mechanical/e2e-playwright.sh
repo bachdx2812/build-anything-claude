@@ -73,9 +73,13 @@ JSON
 }
 
 # ── Trigger check ──────────────────────────────────────────────────
+# v8.5.1 (2026-05-27): for project_type ∈ {frontend,mixed}, e2e.enabled MUST be true.
+# Setting enabled=false on a UI project is now FAIL (was N/A) because declared-but-skipped
+# E2E is the exact hole the YouTube-clone atom exposed: every browser-visible bug
+# (fail-to-load-feed, watch crash, ambiguous nav locator) was trivially catchable.
 if [[ "$E2E_ENABLED" != "true" ]]; then
   if [[ "$PROJECT_TYPE" == "frontend" || "$PROJECT_TYPE" == "mixed" ]]; then
-    emit_e2e_na "e2e.enabled=false but project has UI (project_type=$PROJECT_TYPE) — reviewer must justify"
+    emit_e2e_fail "project_type=$PROJECT_TYPE requires e2e.enabled=true; LAW-F6 forbids skipping UI smoke" '{}'
   else
     emit_e2e_na "no UI surface (project_type=$PROJECT_TYPE)"
   fi
@@ -132,6 +136,60 @@ if [[ ${#INSUFFICIENT[@]} -gt 0 ]]; then
   missing_json=$(printf '%s\n' "${INSUFFICIENT[@]}" | jq -R . | jq -s .)
   emit_e2e_fail "journeys without enough E2E tests (min=$MIN_PER per journey)" \
     "{\"insufficient_journeys\": $missing_json, \"coverage\": $COVERAGE_REPORT}"
+fi
+
+# ── Ensure node_modules + booted stack ─────────────────────────────
+# v8.5.1: skill must NOT assume the operator has booted the stack.
+# Auto-install + boot if missing; tear down only what we started.
+FRONTEND_DIR=$(cfg "e2e.frontend_dir" "$PROJECT_ROOT/frontend")
+BACKEND_BOOT_CMD=$(cfg "e2e.backend_boot_cmd" "")
+FRONTEND_BOOT_CMD=$(cfg "e2e.frontend_boot_cmd" "npm run dev")
+FRONTEND_URL=$(cfg "e2e.frontend_url" "http://localhost:3000")
+BACKEND_URL=$(cfg "e2e.backend_url" "")
+BOOT_TIMEOUT=$(cfg "e2e.boot_timeout_sec" "60")
+SPAWNED_PIDS=()
+
+cleanup_spawned() {
+  for pid in "${SPAWNED_PIDS[@]:-}"; do
+    [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null || true
+  done
+}
+trap cleanup_spawned EXIT
+
+wait_http_200() {
+  local url="$1" timeout="$2" label="$3"
+  local deadline=$(( $(date +%s) + timeout ))
+  while [[ $(date +%s) -lt $deadline ]]; do
+    if curl -sSf -o /dev/null "$url" 2>/dev/null; then
+      log_step e2e "$label up ($url)"
+      return 0
+    fi
+    sleep 1
+  done
+  emit_e2e_fail "$label not reachable within ${timeout}s ($url)" "{\"url\":\"$url\"}"
+}
+
+if [[ -d "$FRONTEND_DIR" && ! -d "$FRONTEND_DIR/node_modules" ]]; then
+  log_step e2e "installing frontend deps (npm ci)"
+  ( cd "$FRONTEND_DIR" && npm ci 2>&1 | tail -20 ) || emit_e2e_fail "npm ci failed in $FRONTEND_DIR" '{}'
+fi
+
+# Boot backend if URL declared and not already up
+if [[ -n "$BACKEND_URL" && -n "$BACKEND_BOOT_CMD" ]]; then
+  if ! curl -sSf -o /dev/null "$BACKEND_URL" 2>/dev/null; then
+    log_step e2e "booting backend: $BACKEND_BOOT_CMD"
+    ( cd "$PROJECT_ROOT" && eval "$BACKEND_BOOT_CMD" ) > "$EVIDENCE_LOCAL/backend-boot.log" 2>&1 &
+    SPAWNED_PIDS+=($!)
+    wait_http_200 "$BACKEND_URL" "$BOOT_TIMEOUT" "backend"
+  fi
+fi
+
+# Boot frontend if not already up
+if ! curl -sSf -o /dev/null "$FRONTEND_URL" 2>/dev/null; then
+  log_step e2e "booting frontend: $FRONTEND_BOOT_CMD"
+  ( cd "$FRONTEND_DIR" && eval "$FRONTEND_BOOT_CMD" ) > "$EVIDENCE_LOCAL/frontend-boot.log" 2>&1 &
+  SPAWNED_PIDS+=($!)
+  wait_http_200 "$FRONTEND_URL" "$BOOT_TIMEOUT" "frontend"
 fi
 
 # ── Actually run Playwright ────────────────────────────────────────

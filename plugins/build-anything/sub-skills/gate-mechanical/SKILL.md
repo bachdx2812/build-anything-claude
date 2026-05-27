@@ -26,9 +26,19 @@ description: Stage 5 — coverage + mutation + property-based + lint + type-chec
 | GATE-10 branch cov | same | ≥ threshold | Section C |
 | GATE-11 mutation | `scripts/mechanical/mutation-test.sh` | ≥ threshold; scope = changed files + 1-hop | Section C |
 | GATE-16 property | `scripts/mechanical/property-test-runner.sh` | every public pure function in diff has ≥ 1 property test | n/a (binary) |
+| **GATE-25-E2E (mandatory for project_type ∈ {frontend, mixed})** | `scripts/mechanical/e2e-playwright.sh` | Playwright spec files cover every declared `e2e.journeys[]`, `npx playwright test` exits 0, ≥1 passed, 0 failed, 0 vacuous-runs | binary |
 | lint | `scripts/mechanical/lint-check.sh` | zero errors | n/a |
 | type-check | `scripts/mechanical/type-check.sh` | zero errors | n/a |
 | build green | (project build cmd) | exit 0 | n/a |
+
+**GATE-25-E2E (Playwright runner) is mandatory for any atom where `project_type ∈ {frontend, mixed}`** — declared-but-not-executed Playwright is a vacuous PASS and forbidden by LAW-F6. The orchestrator MUST:
+1. Run `npm ci` (or `pnpm i --frozen-lockfile`) in the frontend stack-dir.
+2. Boot backend (`go run ./cmd/api &` or equivalent) AND frontend (`npm run dev &`) — both on declared ports.
+3. Wait until both `GET /healthz` (backend) and `GET /` (frontend) return 200 OR fail GATE-25-E2E with `boot-failed`.
+4. Run `e2e-playwright.sh` against the live stack.
+5. Tear down on completion.
+
+Justification (added 2026-05-27 from atom 260527-0141-youtube-like-share post-mortem): the user-visible bugs "fail to load feed" + "watch page never renders" + "Upload nav ambiguous" were ALL trivially catchable by a 30-line Playwright smoke spec; the prior skill version declared GATE-25-E2E in the orchestrator table but the mechanical-gate sub-skill table omitted it, so it was never executed. This is the hole that fix closes.
 
 All scripts emit a single-number primary metric to stdout (usable as `/ck:autoresearch` Verify command in AL-4 self-heal).
 
