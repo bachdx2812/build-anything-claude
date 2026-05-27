@@ -221,6 +221,7 @@ When body is empty, gate MUST emit `verdict: "N/A_PENDING_REVIEWER"` (passed: nu
 - **GATE-MOBILE-PERMS MOBILE PERMISSION RECONCILIATION (v8.6)** — iOS `Info.plist` `NS*UsageDescription` keys + Android `AndroidManifest.xml` `<uses-permission>` entries reconciled against actual code API usage. **MANDATORY for `project_type ∈ mobile-*`**. Two-way check: (a) CRITICAL — code references API requiring a permission (e.g. `AVCaptureDevice` / `CLLocationManager` / `CameraX` / `FusedLocationProviderClient`) but the corresponding key/permission is absent → runtime crash (iOS) or SecurityException (Android); (b) HIGH — permission declared but no matching code API found → app-store rejection risk for unjustified sensitive permissions (in `mobile.perms.strict=true` mode this also FAILs). Phase-1 reconciliation covers the top 12 iOS NS*UsageDescription keys and the top 13 Android dangerous + INTERNET permissions, including cross-platform package names (`expo-camera`, `react-native-camera`, `image_picker`, `expo-location`, `geolocator`, `flutter_blue`, `expo-local-authentication`, …). Script: `scripts/mechanical/mobile-perms-check.sh`. Detail: §Y.
 - **GATE-25-E2E-BROWSER DESKTOP-BROWSER END-TO-END (v8.7)** — CDP- or WebDriver-driven journeys against the **browser binary the atom is producing** (Chromium fork / Electron / Tauri / Gecko / from-scratch). **MANDATORY for `project_type ∈ desktop-browser-*`**: `browser.binary_path` empty is FAIL by LAW-F6 (mirrors v8.5.1 web + v8.6 mobile mandates). Runner script (`scripts/mechanical/e2e-browser.sh`) MUST: (1) verify `browser.binary_path` is set AND the file exists (FAIL if absent — the build never produced an artefact), (2) verify `browser.journeys_dir` (default `.browser-journeys/`) exists with ≥1 journey file (`*.json` / `*.yaml` / `*.yml`), (3) launch the binary under the declared `browser.driver` (`cdp` default, `webdriver` alt) using `browser.run_cmd` (defaults to bundled `_browser-cdp-runner.sh` which speaks Chrome DevTools Protocol on `--remote-debugging-port=9222`), (4) execute each journey (navigate → assertions: `title_contains` / `title_matches` / `url_contains` / `url_matches`), (5) FAIL on vacuous run (0 `[Passed]` AND 0 `[Failed]`) or any `[Failed]` journey or non-zero exit. Non-CDP drivers (Gecko Marionette, Servo's own) MUST declare `browser.run_cmd` — there is no honest universal harness. Playwright/Cypress are insufficient: they assume "the browser" exists already; here the browser **is** the SUT. Catches: "boss said ship Comet/Arc/Brave fork; Devin claims done but the binary has never actually been launched."
 - **GATE-BROWSER-WPT WEB PLATFORM TESTS CONFORMANCE (v8.7)** — W3C/WHATWG conformance run against the produced binary. **MANDATORY for `project_type ∈ desktop-browser-*`**: `browser.wpt.enabled = false` is FAIL by LAW-F6 declared-but-skipped (a browser without standards conformance evidence is not a browser). Runner script (`scripts/mechanical/browser-wpt-check.sh`) MUST: (1) verify `browser.wpt.enabled = true`, (2) verify `browser.wpt.subset[]` non-empty (the atom must declare which WPT trees apply — e.g. `["html/dom/", "css/css-flexbox/", "fetch/"]`), (3) verify a runner is reachable (`wpt` on PATH OR `browser.wpt.runner_cmd` declared), (4) verify `browser.binary_path` exists, (5) execute `wpt run --product=chrome --binary=$BIN $SUBSET` (or custom), (6) parse `--log-wptreport` JSON-lines output for pass/fail counts, (7) FAIL on 0 tests executed (vacuous) OR `pass_rate < browser.wpt.threshold` (default 0.95). Chromium itself runs millions of WPT cases nightly; a fork claiming "done" without a WPT subset run has no compatibility floor. Detail: §Z.
+- **GATE-COMP-COV COMPENSATING-COVERAGE SAFETY NET (v8.7.1)** — Catch-all for project_types with no specialized behavioral gate. **MANDATORY** when `project_type ∉ {frontend, mixed, backend, mobile-*, desktop-browser-*}` (e.g. `library` / `cli` / `sdk` / `daemon` / `worker` / `firmware` / `kernel` / `game` / `ml-model` / `data-pipeline` / `extension` / `plugin` / `dsl`), OR when atom opts in via `compensating_coverage.enabled = true`. The agent CANNOT silently emit PASS on a shape with no behavioral path — without this gate, a `library` atom with one stub test passes the whole pipeline. Runner script (`scripts/mechanical/compensating-coverage.sh`) MUST: (1) verify `compensating_coverage.reason` non-empty (agent must justify why no E2E path applies — pure declaration of the WHY is the LAW-F6 hook), (2) verify `compensating_coverage.coverage_cmd` non-empty + `coverage_report_path` non-empty + `coverage_report_format ∈ {istanbul, simple, text}`, (3) execute the cmd from project root — non-zero exit → FAIL, (4) read the resulting report, (5) FAIL if `line < 90` OR `branch < 85` (RAISED floors above backend default 80/70 — atom can raise, gate clamps lower requests up to the floors), (6) FAIL if BOTH `line=0` AND `branch=0` (vacuous — cmd ran but no test execution recorded). Detail: §AA.
 - **GATE-IMPL BMAD-METHOD STAGE-4 COVERAGE (v8.4)** — Stage 4 BUILD enforcement. Partitions the atom allowlist into `{backend, frontend, tests}` concerns via `scripts/implementer/concern-split.sh` (concern-split.json). Dispatches up to three personas (Dev-Backend, Dev-Frontend, Dev-Tests) in parallel via Claude Code Task tool from prompt files under `sub-skills/implementer/references/personas/`. FAIL if (a) any dispatched persona left no `*-status.json`; (b) any persona's `files_changed[]` is not a subset of its allowlist subset; (c) persona allowlist subsets overlap (file in two personas → merge conflict); (d) `tests-status.core_flows_covered[]` is missing any entry from `intent/verdict.json.core_flows[]`. When atom does not reach Stage 4 → `N/A_PENDING_REVIEWER`, not ERROR. Single-file atoms or `--fast` collapse to single-persona; the gate still enforces files-changed ⊆ allowlist. Script: `implementer/implementer-coverage-gate.sh`. Detail: §V.
 
 > **N/A rule:** if a gate's required config is absent in `.build-anything.json`, the script writes `verdict: "N/A_PENDING_REVIEWER"` and exits 0. Reviewer MUST justify the N/A or HALT. See **§F**.
@@ -797,7 +798,7 @@ Exit codes:
 
 ## Section O — Meta-Gates (Skill Self-Regression)
 
-The skill itself has a regression spine. Ten meta-gates verify the skill cannot regress against its own invariants:
+The skill itself has a regression spine. Eleven meta-gates verify the skill cannot regress against its own invariants:
 
 | Meta-gate | Asserts | Script |
 |-----------|---------|--------|
@@ -811,6 +812,7 @@ The skill itself has a regression spine. Ten meta-gates verify the skill cannot 
 | `sm-breakdown-test.sh` (v8.5.2) | GATE-SM: 7 fixtures (no plan → N/A, valid → PASS, missing section → FAIL, oversized → FAIL, uncovered flow → FAIL, dependency cycle → FAIL, untestable AC → FAIL) | `meta/sm-breakdown-test.sh` |
 | `mobile-e2e-test.sh` (v8.6) | GATE-25-E2E-MOBILE + GATE-MOBILE-PERMS: 7 fixtures (web→N/A, maestro disabled→FAIL, no flows_dir→FAIL, 0 yaml→FAIL, perms web→N/A, missing camera desc→FAIL CRITICAL, orphan CAMERA→FAIL HIGH) | `meta/mobile-e2e-test.sh` |
 | `browser-e2e-test.sh` (v8.7) | GATE-25-E2E-BROWSER + GATE-BROWSER-WPT: 7 fixtures (backend→N/A, no binary_path→FAIL, no journeys_dir→FAIL, empty journeys→FAIL, frontend wpt→N/A, wpt.enabled=false desktop-browser→FAIL LAW-F6, wpt empty subset→FAIL) | `meta/browser-e2e-test.sh` |
+| `compensating-coverage-test.sh` (v8.7.1) | GATE-COMP-COV: 6 fixtures (frontend→N/A specialized gate exists, library no config→FAIL LAW-F6, library missing `coverage_cmd`→FAIL, library line=92 branch=88→PASS, library line=75 below 90 floor→FAIL, cli line=0 branch=0 vacuous→FAIL) | `meta/compensating-coverage-test.sh` |
 
 One-line runner: `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh`. Auto-discovers every sibling `*.sh` meta-gate. Exit 0 = no regression, 1 = skill regression (LAW-F6 or LAW-CL-95 or GATE-INTENT broken), 2 = harness rot (a meta-gate itself broken). New meta-gates added to `scripts/meta/` are picked up without code changes.
 
@@ -1876,6 +1878,131 @@ This is the **10th** meta-gate. The complete meta-suite is wired into `run-all-m
 | Why CDP and not WebDriver? | CDP is universally supported by Chromium-shape browsers. Bundled `_browser-cdp-runner.sh` covers Chromium / Electron / Tauri (Chromium-backed) out of the box. Gecko / Safari / novel browsers MUST set `browser.run_cmd` explicitly (geckodriver / safaridriver / custom). |
 | Will this break web or mobile projects? | No. Every v8.7 gate short-circuits with `N/A_PENDING_REVIEWER` on non-browser `project_type`. Web and mobile pipelines unchanged. |
 | What's still deferred to v8.8? | `GATE-BROWSER-COMPAT` (top-1000 sites smoke), `GATE-BROWSER-CRASH` (Crashpad/Breakpad ingestion), `GATE-BROWSER-FUZZ` (libFuzzer corpus), cross-OS pixel-parity tests. v8.7 covers runtime + standards conformance + SLO dialect + product fitness. |
+
+---
+
+## Section AA — Compensating-coverage safety net (v8.7.1 — GATE-COMP-COV)
+
+### AA.1 Why this layer exists
+
+v8.5.1 covered web (Playwright). v8.6 covered mobile (Maestro). v8.7 covered desktop-browser (CDP + WPT). Every **other** software shape — library / CLI / SDK / daemon / worker / firmware / kernel module / game runtime / ML model / data pipeline / browser extension / plugin / DSL compiler / shader / agent / bot — falls through the dispatch with **no behavioral gate**. Without a safety net, an atom declaring `project_type = library` PASSes the entire pipeline with one stub test, because:
+
+- GATE-25-E2E (Playwright) emits N/A — no FE seam.
+- GATE-25-E2E-MOBILE (Maestro) emits N/A — not mobile.
+- GATE-25-E2E-BROWSER (CDP) emits N/A — not a browser binary.
+- GATE-UIUX emits N/A — no DOM surface.
+- GATE-10/11 (coverage / mutation) use the *default* backend thresholds (line ≥ 80, branch ≥ 70), which a library with two well-tested files clears trivially.
+
+The result: a "ship a Rust crate" or "ship a CLI tool" or "ship a data-pipeline DAG" atom looks behaviorally identical to a green production-quality build, when in reality nobody verified the surface that *does* exist (units, branches, edge cases). Boss's brief was "build me a thing that works"; the gate set said "PASS"; the thing was never exercised.
+
+**`GATE-COMP-COV` closes this.** When no specialized gate applies, the agent MUST declare a compensating strategy — aggressive unit + branch coverage with thresholds **raised above** the backend default — plus a written *reason* explaining why behavioral testing doesn't apply. This is LAW-F6's natural extension to uncovered project_types: the gate cannot be skipped silently; the agent has to look the lack of behavioral testing in the eye and compensate.
+
+### AA.2 Trigger logic
+
+Fires when EITHER condition holds:
+
+1. **`project_type` ∉ specialized-coverage set** `{frontend, mixed, backend, mobile-*, desktop-browser-*}`. The shape has no behavioral gate; compensating coverage is mandatory.
+2. **`compensating_coverage.enabled = true`**. Explicit opt-in. Allowed even when a specialized gate fires (e.g. a `backend` atom that wants extra rigor on top of GATE-18..21).
+
+Otherwise → `N/A_PENDING_REVIEWER` (the atom has a behavioral path; compensating coverage not required).
+
+### AA.3 Required `.build-anything.json` shape (when fired)
+
+```json
+{
+  "project_type": "library",
+  "compensating_coverage": {
+    "enabled": true,
+    "reason": "Pure Rust crate — no UI surface, no HTTP boundary; Playwright / Maestro / CDP cannot apply",
+    "coverage_cmd": "cargo tarpaulin --out Json --output-dir coverage",
+    "coverage_report_path": "coverage/tarpaulin-report.json",
+    "coverage_report_format": "simple",
+    "thresholds": { "line": 92, "branch": 88 }
+  }
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `enabled` | yes (when opted-in via this flag) | Implicit true when project_type is uncovered. |
+| `reason` | **yes — non-empty** | Agent MUST write WHY no behavioral path applies. LAW-F6 hook: empty reason = silent PASS attempt = FAIL. |
+| `coverage_cmd` | yes | The exact command the gate executes (`cd $project_root && eval $cmd`). Non-zero exit = FAIL. |
+| `coverage_report_path` | yes | File path the cmd writes coverage data to. Missing after run = FAIL. |
+| `coverage_report_format` | yes | `istanbul` / `simple` / `text` (see §AA.4). |
+| `thresholds.line` | optional | Default 90. Atom can raise; gate clamps any value below 90 up to 90. |
+| `thresholds.branch` | optional | Default 85. Same clamp rule. |
+
+### AA.4 Supported coverage report formats
+
+| Format | Shape | Use when |
+|--------|-------|----------|
+| `istanbul` | `{ "total": { "lines": { "pct": N }, "branches": { "pct": N } } }` — the `coverage-summary.json` shape emitted by `nyc` / Jest `--coverage` / Istanbul reporter. | Node / TS atoms (default). |
+| `simple` | `{ "line": N, "branch": N }` — flat JSON the atom emits manually. | Rust (`tarpaulin` post-processed), Go (`go tool cover` post-processed), Python (`coverage.json` re-shaped), any tool the agent wraps with a one-liner. |
+| `text` | Plain text containing `lines ... N%` and `branches ... N%` lines. Gate greps. | Quick-and-dirty atoms whose tool prints percentages to stdout but emits no machine-readable file (`pytest --cov` summary, Go `go test -cover` raw output). Agent redirects stdout to `coverage_report_path`. |
+
+Cobertura XML / LCOV: NOT supported natively in v8.7.1. Atom must convert to one of the three above (one jq / Python one-liner). Native parsers deferred to v8.7.2.
+
+### AA.5 Threshold floors (clamped)
+
+| SLI | Default | Floor (cannot go below) | Backend default (for context) |
+|-----|---------|--------------------------|-------------------------------|
+| line | 90% | 90% | 80% |
+| branch | 85% | 85% | 70% |
+
+Why higher than backend? Backend has GATE-18..21 (DB, HTTP, auth) doing behavioral work *underneath* the coverage number — those gates fail loudly on integration bugs. A library has only the coverage number; the bar must be higher because nothing else is watching.
+
+### AA.6 FAIL conditions (LAW-F6 enforcement)
+
+| Condition | Verdict | Why |
+|-----------|---------|-----|
+| Trigger fires, `compensating_coverage` block missing entirely | FAIL | Uncovered project_type cannot silent-PASS. Agent must declare. |
+| `reason` empty | FAIL | Agent must justify the WHY. Empty = silent skip attempt. |
+| `coverage_cmd` empty | FAIL | Gate needs a command to execute. |
+| `coverage_report_path` empty | FAIL | Gate needs to read the result. |
+| `coverage_report_format` ∉ {istanbul, simple, text} | FAIL | Reject unsupported formats up front. |
+| `coverage_cmd` exits non-zero | FAIL | The test command itself broke. Logged in `comp-cov-cmd.log`. |
+| `coverage_report_path` missing after cmd ran | FAIL | Cmd claimed success but produced no report — atom misconfigured. |
+| `line < threshold` OR `branch < threshold` | FAIL | Coverage below the floor. |
+| `line = 0 AND branch = 0` | FAIL (vacuous) | Cmd ran but no test execution recorded. The classic LAW-F6 trap. |
+
+### AA.7 What this catches
+
+Concrete shapes that previously slipped through:
+
+1. **`project_type = library`** (Rust crate, Node module, Python package). Old: 1 stub test → backend coverage gate happy. New: needs ≥90% line / 85% branch on the actual crate code.
+2. **`project_type = cli`**. Old: argument-parsing happy-path test only. New: must cover error paths, flag combinations, edge cases.
+3. **`project_type = data-pipeline`** (Airflow DAG, Spark job, ETL script). Old: "the job ran in dev once" was the test. New: must unit-test transformations + sinks at ≥90% line.
+4. **`project_type = extension`** (browser extension, IDE extension, OBS plugin). Old: Playwright N/A because not a webpage, browser-CDP N/A because not a browser binary. New: must declare unit + branch on the extension code.
+5. **`project_type = ml-model`**. Old: "the model trained without error". New: unit tests for preprocessing / feature extraction / inference wrappers at ≥90%.
+6. **`project_type = firmware` / `kernel` / `embedded`**. Old: "it compiled". New: at minimum the host-side simulation harness must be ≥90% line / 85% branch.
+
+### AA.8 Meta-gate fixtures (6)
+
+`scripts/meta/compensating-coverage-test.sh`:
+
+| # | Scenario | Expected | Asserts |
+|---|----------|----------|---------|
+| 1 | `project_type=frontend` | `N/A_PENDING_REVIEWER` rc=0 | Specialized gate exists (Playwright) — compensating not required. |
+| 2 | `project_type=library`, no `compensating_coverage` block | FAIL rc=1 | LAW-F6: uncovered shape cannot pass without declaration. |
+| 3 | `project_type=library`, `enabled=true`, `coverage_cmd` empty | FAIL rc=1 | Required field missing — fail up front. |
+| 4 | `project_type=library`, line=92, branch=88 | PASS rc=0 | Above default floor (90/85) → PASS. |
+| 5 | `project_type=library`, line=75 | FAIL rc=1 | Below 90 floor → FAIL even though atom declared everything. |
+| 6 | `project_type=cli`, line=0 branch=0 | FAIL rc=1 | Vacuous run: cmd succeeded but no real coverage recorded. |
+
+This is the **11th** meta-gate. Wired into `run-all-meta-gates.sh` and must run green before every UBS skill release.
+
+### AA.9 Relationship to v8.8
+
+v8.8 will add: per-module coverage floor (no single module < 70% — prevents one untested module hiding behind well-tested others), mandatory mutation-testing for compensating atoms (≥75% mutation score), property-test requirement for pure functions in libraries, LCOV / Cobertura native parsers. v8.7.1 is the minimum viable safety net — it stops the silent-PASS bleed today.
+
+### AA.10 FAQ
+
+| Q | A |
+|---|---|
+| Why not just raise the *backend* coverage thresholds for everyone? | Backend already has GATE-18..21 doing behavioral work; raising its coverage floor would over-constrain a healthy gate set. The compensating floor is for shapes where coverage is the *only* signal. |
+| What if my project genuinely can't be unit-tested (firmware on custom silicon)? | Declare `compensating_coverage.reason` with the constraint AND wrap whatever can be tested (host-side simulator, mock register map, calibration table validators). Even firmware has a testable host-side surface; 0% line coverage is never a defensible answer. |
+| Why no `mutation` threshold yet? | Mutation testing is tool-specific (Stryker / Mutmut / mutPy / cargo-mutants) and slow. v8.7.2 adds it once the tooling story stabilises. |
+| Why clamp thresholds at the floor instead of erroring on lower-than-floor declarations? | Clamping makes the gate friendlier to operators copy-pasting old configs. The log line records the clamp so the reviewer sees it. |
 
 ---
 
