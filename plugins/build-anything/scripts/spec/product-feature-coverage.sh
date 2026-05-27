@@ -110,17 +110,24 @@ SPEC_LC=$(tr '[:upper:]' '[:lower:]' < "$SPEC_FILE")
 # Catalog: { "<type>": { "keywords": [...], "must_have": [{"name": "...", "synonyms": [...]}], "synonyms": [...] } }
 # Use NUL-delimited iteration to avoid bash word-splitting on multi-word keywords.
 MATCHED=""
+# NOTE on the search form: `grep -qF -- "$kw" <<<"$SPEC_LC"` (here-string),
+# NOT `echo "$SPEC_LC" | grep -qF "$kw"`. The pipe form is broken under
+# `set -o pipefail` for spec files larger than the pipe buffer (~64KB on
+# macOS): grep -q exits on first match → closes pipe → echo gets SIGPIPE
+# → echo exits non-zero → pipefail makes the whole pipeline non-zero →
+# the `if` condition reads false even though grep matched. Here-strings
+# materialise via temp file, no pipe, no SIGPIPE.
 while IFS= read -r -d '' key; do
   # Iterate keywords for this type (NUL-delimited so multi-word keywords stay whole)
   while IFS= read -r -d '' kw; do
     # Lowercase for case-insensitive compare; escape regex metachars minimally
     kw_lc=$(printf '%s' "$kw" | tr '[:upper:]' '[:lower:]')
-    if echo "$SPEC_LC" | grep -qF "$kw_lc"; then
+    if grep -qF -- "$kw_lc" <<<"$SPEC_LC"; then
       MATCHED="$key"
       break 2
     fi
   done < <(jq -r --arg k "$key" '.[$k].keywords[]' "$CATALOG" | tr '\n' '\0')
-done < <(jq -r 'keys[]' "$CATALOG" | tr '\n' '\0')
+done < <(jq -r 'keys[] | select(startswith("_") | not)' "$CATALOG" | tr '\n' '\0')
 
 if [[ -z "$MATCHED" ]]; then
   emit_na "no canonical product type matched in spec text — reviewer must confirm product type is novel OR add type to catalog"
@@ -138,7 +145,8 @@ for i in $(seq 0 $((mh_count - 1))); do
   # Try each synonym (NUL-delimited to preserve multi-word terms) then the canonical name
   while IFS= read -r -d '' syn; do
     syn_lc=$(printf '%s' "$syn" | tr '[:upper:]' '[:lower:]')
-    if echo "$SPEC_LC" | grep -qF "$syn_lc"; then
+    # Here-string (not pipe) — see SIGPIPE-under-pipefail note above.
+    if grep -qF -- "$syn_lc" <<<"$SPEC_LC"; then
       found=true
       break
     fi
