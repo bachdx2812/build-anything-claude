@@ -216,7 +216,9 @@ When body is empty, gate MUST emit `verdict: "N/A_PENDING_REVIEWER"` (passed: nu
 - **GATE-STACK STACK FITNESS (v8.4 → v8.5)** — declared `stack.*` block in atom brief satisfies every `required_capabilities[]` row in the catalog for the matched product type. Each capability has `accept_values`, `disqualified_values`, `disqualified_packages`, optional `disqualified_schema_columns`. FAIL when a serious product (e.g. `youtube-clone`) declares a toy stack (e.g. `better-sqlite3` + `multer`-to-local-disk + no transcoder + no CDN). Catches "YouTube clone on a laptop that cannot serve a second concurrent upload" class of spec failure — the v8.3 hole. Fuzzy match: `youtube-clone-mvp` → `youtube-clone`. **v8.5 tier-aware:** when `intent.declared.scale_tier` is set, the catalog row `scale_tiers[<tier>]` is used instead of the flat `stack_fitness` block; required capabilities, disqualified packages, and cost band all escalate per tier. Additional tier-alignment FAIL condition: `cost.monthly_usd_ceiling < cost_band.min_usd_month` (under-budgeted for tier). Script: `spec/stack-fitness-check.sh`. Exempt from `--fast`. Detail: §T (v8.4 base) + §W (v8.5 tier dimension).
 - **GATE-PROD-DESIGN PRODUCTION DESIGN (v8.5)** — Stage 1.D enforcement of architect persona's `production-design.md`. Verifies eight required sections present with body content + min-content rules: (1) `Capacity model` body MUST contain digits (no adjective-only capacity claims), (2) `Failure modes` table MUST have ≥3 data rows, (3) `Tenancy model` body present, (4) `Data lifecycle` body present, (5) `SLO targets` body MUST contain `p95` and (`%` or `availability`), (6) `Deployment topology` body present, (7) `Observability story` body present, (8) `Boring-tech justification` body present. FAIL on any missing section or content rule; N/A_PENDING_REVIEWER if the file is absent (architect persona not yet run for the atom). Catches "shipped an MVP-thinking architecture dressed as a production design" — the v8.4 hole where no capacity numbers were ever written down. Script: `spec/production-design-gate.sh`. Exempt from `--fast`. Detail: §W.
 - **GATE-UIUX UI/UX AUDIT** — design system compliance + a11y minimum + keyboard navigation + focus management. Runs only if atom touches FE surface. Script: `gate-ui-ux/audit.sh`.
-- **GATE-25-E2E END-TO-END** — Playwright / Cypress journey covering the declared `core_flows[]`. Required for any atom touching the FE+BE seam. **MANDATORY (v8.5.1, 2026-05-27) for `project_type ∈ {frontend, mixed}`**: `e2e.enabled = false` is no longer a valid N/A — it is FAIL by LAW-F6. Runner script (`scripts/mechanical/e2e-playwright.sh`) MUST: (1) install frontend deps if `node_modules/` absent, (2) boot backend + frontend if not already reachable, (3) wait for both to return 200, (4) execute `npx playwright test`, (5) FAIL on any vacuous run (0 passed AND 0 failed) or non-zero exit. Justification: atom 260527-0141 (`youtube-like-share`) post-mortem showed three browser-visible bugs (fail-to-load-feed from missing CORS, watch page crash from Next.js 14 `use()` mis-use, ambiguous "Upload" locator) that a declared-but-skipped Playwright step would not have caught. Declared-only is now banned.
+- **GATE-25-E2E END-TO-END** — Playwright / Cypress journey covering the declared `core_flows[]`. Required for any atom touching the FE+BE seam. **MANDATORY (v8.5.1, 2026-05-27) for `project_type ∈ {frontend, mixed}`**: `e2e.enabled = false` is no longer a valid N/A — it is FAIL by LAW-F6. Runner script (`scripts/mechanical/e2e-playwright.sh`) MUST: (1) install frontend deps if `node_modules/` absent, (2) boot backend + frontend if not already reachable, (3) wait for both to return 200, (4) execute `npx playwright test`, (5) FAIL on any vacuous run (0 passed AND 0 failed) or non-zero exit. Justification: atom 260527-0141 (`youtube-like-share`) post-mortem showed three browser-visible bugs (fail-to-load-feed from missing CORS, watch page crash from Next.js 14 `use()` mis-use, ambiguous "Upload" locator) that a declared-but-skipped Playwright step would not have caught. Declared-only is now banned. **v8.6 (2026-05-27):** for `project_type ∈ mobile-*` the runner emits `N/A_PENDING_REVIEWER` and dispatch falls through to GATE-25-E2E-MOBILE — Playwright cannot drive iOS Simulator / Android Emulator.
+- **GATE-25-E2E-MOBILE MOBILE END-TO-END (v8.6)** — Maestro-driven UI automation covering declared mobile journeys. **MANDATORY for `project_type ∈ mobile-*`**: `maestro.enabled = false` is FAIL by LAW-F6 (mirrors v8.5.1 web mandate). Runner script (`scripts/mechanical/e2e-maestro.sh`) MUST: (1) verify `maestro` binary on PATH (FAIL with install hint if missing — `curl -Ls https://get.maestro.mobile.dev | bash`), (2) verify `maestro.flows_dir` (default `.maestro/`) exists with ≥1 `*.yaml` / `*.yml` flow, (3) verify `maestro.app_id` declared (iOS bundle id OR Android package name), (4) optionally boot iOS Simulator (`xcrun simctl boot`) or Android emulator (`emulator -avd … && adb wait-for-device`) when `maestro.boot=true`, (5) execute `maestro test $flows_dir`, (6) FAIL on any vacuous run (0 `[Passed]` AND 0 `[Failed]`) or non-zero exit. Maestro is chosen because a single YAML runner covers iOS native, Android native, RN, Flutter, and Expo without per-stack runners. Catches: "boss said build me an iOS app; Devin claims done but the binary has never actually been launched." Detail: §Y.
+- **GATE-MOBILE-PERMS MOBILE PERMISSION RECONCILIATION (v8.6)** — iOS `Info.plist` `NS*UsageDescription` keys + Android `AndroidManifest.xml` `<uses-permission>` entries reconciled against actual code API usage. **MANDATORY for `project_type ∈ mobile-*`**. Two-way check: (a) CRITICAL — code references API requiring a permission (e.g. `AVCaptureDevice` / `CLLocationManager` / `CameraX` / `FusedLocationProviderClient`) but the corresponding key/permission is absent → runtime crash (iOS) or SecurityException (Android); (b) HIGH — permission declared but no matching code API found → app-store rejection risk for unjustified sensitive permissions (in `mobile.perms.strict=true` mode this also FAILs). Phase-1 reconciliation covers the top 12 iOS NS*UsageDescription keys and the top 13 Android dangerous + INTERNET permissions, including cross-platform package names (`expo-camera`, `react-native-camera`, `image_picker`, `expo-location`, `geolocator`, `flutter_blue`, `expo-local-authentication`, …). Script: `scripts/mechanical/mobile-perms-check.sh`. Detail: §Y.
 - **GATE-IMPL BMAD-METHOD STAGE-4 COVERAGE (v8.4)** — Stage 4 BUILD enforcement. Partitions the atom allowlist into `{backend, frontend, tests}` concerns via `scripts/implementer/concern-split.sh` (concern-split.json). Dispatches up to three personas (Dev-Backend, Dev-Frontend, Dev-Tests) in parallel via Claude Code Task tool from prompt files under `sub-skills/implementer/references/personas/`. FAIL if (a) any dispatched persona left no `*-status.json`; (b) any persona's `files_changed[]` is not a subset of its allowlist subset; (c) persona allowlist subsets overlap (file in two personas → merge conflict); (d) `tests-status.core_flows_covered[]` is missing any entry from `intent/verdict.json.core_flows[]`. When atom does not reach Stage 4 → `N/A_PENDING_REVIEWER`, not ERROR. Single-file atoms or `--fast` collapse to single-persona; the gate still enforces files-changed ⊆ allowlist. Script: `implementer/implementer-coverage-gate.sh`. Detail: §V.
 
 > **N/A rule:** if a gate's required config is absent in `.build-anything.json`, the script writes `verdict: "N/A_PENDING_REVIEWER"` and exits 0. Reviewer MUST justify the N/A or HALT. See **§F**.
@@ -793,7 +795,7 @@ Exit codes:
 
 ## Section O — Meta-Gates (Skill Self-Regression)
 
-The skill itself has a regression spine. Eight meta-gates verify the skill cannot regress against its own invariants:
+The skill itself has a regression spine. Nine meta-gates verify the skill cannot regress against its own invariants:
 
 | Meta-gate | Asserts | Script |
 |-----------|---------|--------|
@@ -805,6 +807,7 @@ The skill itself has a regression spine. Eight meta-gates verify the skill canno
 | `production-design-test.sh` | GATE-PROD-DESIGN: 8 fixtures (absent → N/A, full → PASS, missing-section → FAIL, no-digits Capacity → FAIL, <3 Failure modes → FAIL, missing p95 → FAIL) | `meta/production-design-test.sh` |
 | `implementer-coverage-test.sh` | GATE-IMPL: silent-drop, allowlist-violation, core_flow-coverage, persona-status missing all detected | `meta/implementer-coverage-test.sh` |
 | `sm-breakdown-test.sh` (v8.5.2) | GATE-SM: 7 fixtures (no plan → N/A, valid → PASS, missing section → FAIL, oversized → FAIL, uncovered flow → FAIL, dependency cycle → FAIL, untestable AC → FAIL) | `meta/sm-breakdown-test.sh` |
+| `mobile-e2e-test.sh` (v8.6) | GATE-25-E2E-MOBILE + GATE-MOBILE-PERMS: 7 fixtures (web→N/A, maestro disabled→FAIL, no flows_dir→FAIL, 0 yaml→FAIL, perms web→N/A, missing camera desc→FAIL CRITICAL, orphan CAMERA→FAIL HIGH) | `meta/mobile-e2e-test.sh` |
 
 One-line runner: `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh`. Auto-discovers every sibling `*.sh` meta-gate. Exit 0 = no regression, 1 = skill regression (LAW-F6 or LAW-CL-95 or GATE-INTENT broken), 2 = harness rot (a meta-gate itself broken). New meta-gates added to `scripts/meta/` are picked up without code changes.
 
@@ -1536,6 +1539,170 @@ With GATE-SM:
 | When is the SM stage skipped? | Single-flow, single-feature epics. The gate writes N/A_PENDING_REVIEWER and the loop continues normally with the original atom. Override via `sm.force_breakdown = true`. |
 | Does this slow every project down? | No. Single-atom epics skip the stage. Multi-feature epics gain a 1× persona round-trip that saves N× rework downstream by catching missing flows and oversized atoms before code is written. |
 | Is this BMAD-faithful? | Yes — Scrum Master is the canonical BMAD role for epic→story breakdown. v8.4 internalised PM/Architect/UX + Dev-BE/FE/Tests; v8.5.2 closes the loop by internalising SM. |
+
+---
+
+## Section Y — Mobile layer (v8.6 — GATE-25-E2E-MOBILE + GATE-MOBILE-PERMS)
+
+### Y.1 Motivation — the v8.5.2 web-bias gap
+
+Through v8.5.2 every E2E and UX gate assumed a browser:
+
+- **GATE-25-E2E** drives Playwright against a booted localhost stack. Playwright cannot operate an iOS Simulator or an Android Emulator.
+- **GATE-UIUX** scans `*.tsx / *.jsx / *.html / *.vue / *.svelte` for DOM-bound rules (alt text, viewport meta, ARIA on icon-only buttons). SwiftUI views, Jetpack Compose composables, RN `<View>` and Flutter widgets ignore these rules entirely.
+- **GATE-PROD-DESIGN** required `p95` AND (`%` OR `availability`) in the SLO section. Mobile apps measure cold-start, jank, frame-drops and crash-free sessions — none of those match the web regex.
+- **`project_type` enum** had no mobile values. A boss brief like "build me an iOS app" would silently fall through to `mixed`, GATE-25-E2E would fail to find an `index.html`, GATE-UIUX would scan an empty surface, and the loop would PASS vacuously.
+
+In short: the entire mechanical surface assumed web. If Devin had been pointed at an iOS or React Native repo, the charter would have rubber-stamped a binary that nobody had ever tried to run on a real device.
+
+### Y.2 Stage placement
+
+The mobile layer rides on top of Stage 5 and Stage 6.7 — no new stage number is needed:
+
+```
+... Stage 4   build atom
+              ▼
+... Stage 5   mechanical gates
+              ├─ if project_type ∈ mobile-*  → e2e-maestro.sh + mobile-perms-check.sh
+              └─ if project_type ∈ {frontend, mixed} → e2e-playwright.sh
+              ▼
+... Stage 6.7 GATE-UIUX
+              ├─ if project_type ∈ mobile-*  → N/A_PENDING_REVIEWER (DOM rules don't apply)
+              └─ else → CSS / DOM audit as before
+```
+
+The dispatch happens **inside** each runner so the orchestrator does not need to be mobile-aware: `e2e-playwright.sh` emits `N/A_PENDING_REVIEWER` on `mobile-*`, `e2e-maestro.sh` emits `N/A_PENDING_REVIEWER` on non-mobile, and the same N/A short-circuit lives in `gate-ui-ux/audit.sh`.
+
+### Y.3 `project_type` enum extension
+
+| Value | Stack | Detection heuristic |
+|-------|-------|--------------------|
+| `mobile-ios` | Swift / SwiftUI native | `*.xcodeproj` at repo root |
+| `mobile-android` | Kotlin / Compose native | `build.gradle.kts` + `app/src/main/kotlin/` |
+| `mobile-rn` | React Native (bare) | `react-native` in `package.json` (no `expo`) |
+| `mobile-flutter` | Flutter / Dart | `pubspec.yaml` at repo root |
+| `mobile-expo` | Expo-managed React Native | `expo` in `package.json` |
+
+Operator may also declare `project_type` explicitly in `.build-anything.json`; detection is fallback only.
+
+### Y.4 GATE-25-E2E-MOBILE contract
+
+Runner: `plugins/build-anything/scripts/mechanical/e2e-maestro.sh`. Inputs read from `.build-anything.json`:
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `maestro.enabled` | `false` | Master switch. For `mobile-*` MUST be `true` or gate FAILs (LAW-F6). |
+| `maestro.flows_dir` | `.maestro` | Directory of YAML flow files (Maestro convention). |
+| `maestro.app_id` | `""` | iOS bundle id OR Android package name. Required for `maestro test`. |
+| `maestro.platform` | `auto` | `ios` / `android` / `auto`. Auto resolves from `project_type`. |
+| `maestro.boot` | `false` | Boot simulator/emulator before run. CI usually keeps `false`. |
+| `maestro.run_cmd` | `maestro test $flows_dir` | Override for custom flow selection / tags. |
+
+**Mechanical checks (all FAIL on miss; no vacuous PASS):**
+
+| Check | FAIL condition |
+|-------|----------------|
+| project_type gate | `mobile-*` AND `maestro.enabled=false` → FAIL (LAW-F6 mandate, mirrors v8.5.1 Playwright mandate) |
+| maestro binary | `command -v maestro` absent → FAIL with install hint (`curl -Ls https://get.maestro.mobile.dev | bash`) |
+| flows_dir present | directory missing → FAIL |
+| flow count | 0 `*.yaml` / `*.yml` files under flows_dir → FAIL |
+| app_id declared | empty → FAIL with platform-specific format hint |
+| run exit code | `maestro test` rc ≠ 0 OR `[Failed]` markers > 0 → FAIL |
+| vacuous-run guard | rc = 0 AND `[Passed]` = 0 AND `[Failed]` = 0 → FAIL |
+
+Why Maestro and not Detox / XCUITest / Espresso: a single YAML-driven runner covers all four mobile stacks (iOS native / Android native / RN / Flutter) without per-stack runners and without a Mac-only build prerequisite. Detox is RN-only; XCUITest is iOS-only; Espresso is Android-only.
+
+### Y.5 GATE-MOBILE-PERMS contract
+
+Runner: `plugins/build-anything/scripts/mechanical/mobile-perms-check.sh`. Reconciles **declared permissions** against **actual code usage**, both directions:
+
+| Direction | Severity | What it catches |
+|-----------|----------|-----------------|
+| declared → used | HIGH (orphan) | Camera permission in Info.plist / AndroidManifest but no code calls AVCaptureDevice / CameraX — App Store / Play reject for unjustified sensitive permissions. |
+| used → declared | CRITICAL (missing) | Code calls CLLocationManager / FusedLocationProviderClient but no `NSLocationWhenInUseUsageDescription` / `ACCESS_FINE_LOCATION` declared — iOS crashes on first call, Android throws SecurityException. |
+
+Phase-1 reconciliation covers the top mobile permissions:
+
+**iOS Info.plist `NS*UsageDescription` keys checked:** Camera, PhotoLibrary, PhotoLibraryAdd, LocationWhenInUse, LocationAlwaysAndWhenInUse, Contacts, Microphone, Calendars, Motion, BluetoothAlways, FaceID, UserTracking.
+
+**Android `<uses-permission>` keys checked:** CAMERA, ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION, ACCESS_BACKGROUND_LOCATION, READ_CONTACTS, RECORD_AUDIO, READ_CALENDAR, READ_EXTERNAL_STORAGE, BLUETOOTH_CONNECT, BLUETOOTH_SCAN, POST_NOTIFICATIONS, USE_BIOMETRIC, INTERNET.
+
+Each permission has a regex covering native APIs **and** common cross-platform package names (expo-camera, react-native-camera, image_picker, expo-location, geolocator, flutter_blue, etc.). Code search runs over `*.swift / *.m / *.mm / *.kt / *.java / *.ts / *.tsx / *.js / *.jsx / *.dart`.
+
+Inputs:
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `mobile.perms.ios_root` | `ios` | Where to find Info.plist. Skipping `Pods/` and `build/` automatically. |
+| `mobile.perms.android_root` | `android` | Where to find AndroidManifest.xml. Skipping `build/` automatically. |
+| `mobile.perms.strict` | `true` | When true, orphan permissions (HIGH) are FAIL. When false, orphans are warnings only. |
+
+CRITICAL findings (missing usage description) always FAIL — non-negotiable, because the resulting app crashes / throws on first sensitive-API call.
+
+### Y.6 GATE-UIUX dispatch on mobile
+
+`scripts/gate-ui-ux/audit.sh` short-circuits at the top:
+
+```
+case "$PROJECT_TYPE" in
+  mobile-*)
+    emit_ui_na "project_type=$PROJECT_TYPE — native UI audit deferred to v8.7 (DOM rules don't apply)"
+    ;;
+esac
+```
+
+The native UX persona (iOS HIG + Material 3 audit) is deferred to v8.7. Until then, mobile UI quality is enforced by Maestro flows (PASS/FAIL on user-visible behaviour) and by the perms gate (no missing usage descriptions). Cosmetic / accessibility audit is left to human review with `N/A_PENDING_REVIEWER`.
+
+### Y.7 GATE-PROD-DESIGN mobile SLO dialect
+
+`scripts/spec/production-design-gate.sh` now reads `project_type` from `.build-anything.json` and switches the SLO regex per project class:
+
+| project_type | SLO required tokens |
+|--------------|---------------------|
+| not mobile-* (web/backend) | `p95` AND (`%` OR `availability`) |
+| mobile-* | (latency: `p95` / `p99` / `cold-start` / `jank` / `frame-drop` / `launch-time`) AND (stability: `%` / `availability` / `crash-free` / `ANR-rate`) |
+
+Boss-facing intent: mobile production-design.md may state SLOs as "cold-start p95 < 2s on Pixel 6a baseline; crash-free sessions ≥ 99.5%" and the gate accepts it. The Capacity model digit rule and Failure modes ≥3 row rule are unchanged.
+
+### Y.8 Feature catalog mobile rows
+
+`scripts/spec/feature-catalog.json` gains three product types and six new capabilities:
+
+| Product type | Must-have features (Stage 1.C) |
+|--------------|-------------------------------|
+| `mobile-app-generic` | onboarding · login · profile · push notifications · offline support |
+| `mobile-fitness` | activity tracking · location tracking · history view · push notifications · biometric login · health integration |
+| `mobile-rideshare` | request ride · real-time location · map view · payment · push notifications · trip history |
+
+| New capability | Accept values (sample) | Rationale |
+|----------------|------------------------|-----------|
+| `push_notifications` | apns / fcm / expo-notifications / onesignal | Mobile retention is push-driven; polling-only kills battery. |
+| `biometric_auth` | faceid / touchid / biometric-prompt / expo-local-authentication | Forces friction-free re-auth — drops session resumption ~40%. |
+| `offline_cache` | sqlite / core-data / room / realm / watermelondb / sqflite / drift / mmkv | Mobile network is flaky by definition. |
+| `deep_links` | universal-links / app-links / branch / appsflyer / firebase-dynamic-links | Custom URL scheme alone is hijackable + invisible to search. |
+| `location_services` | core-location / fused-location-provider / expo-location / geolocator | IP-geo is country-level — anything ride/fitness/social needs GPS. |
+| `crash_reporter` | sentry / crashlytics / bugsnag / instabug / datadog-rum-mobile | You can't ssh into user devices — remote crash report is the only signal. |
+
+GATE-STACK (tier-aware) consumes these the same way as web capabilities: required vs recommended vs disqualified per `scale_tiers.{mvp,growth,scale}` block.
+
+### Y.9 What's deferred to v8.7
+
+| Deferred gate | Why not v8.6 |
+|---------------|--------------|
+| GATE-MOBILE-BUILD | `.ipa` / `.apk` / `.aab` artefact + signing reconciled with Apple Developer cert / Android keystore. Big surface (debug vs release, free vs paid Apple Dev, fastlane integration). |
+| GATE-MOBILE-STORE-RULES | App Store Review Guidelines + Play Console policy checklist (private-data declarations, content ratings, IDFA usage). |
+| Native UX persona | iOS HIG + Material 3 audit. Requires extending ui-ux-pro-max with native widget rules. |
+| Per-platform perf gates | XCUITest performance metrics / Android benchmark. |
+| Flutter / RN bridge audit | JS thread vs UI thread FPS. |
+
+### Y.10 Boss-facing summary
+
+| Question | Answer |
+|----------|--------|
+| What does v8.6 prevent? | Devin claiming "iOS app done" with no app launch, no permission descriptions, no working flows. Same LAW-F6 principle as v8.5.1 web, applied to mobile. |
+| Why Maestro and not Detox / XCUITest? | One YAML runner covers iOS native + Android native + React Native + Flutter + Expo. No Mac-only build dependency. |
+| Will this break web projects? | No. Every mobile gate short-circuits with N/A_PENDING_REVIEWER on non-mobile project_type. Web behaviour unchanged. |
+| What's still manual on mobile? | Build signing (.ipa / .apk verification) and store-rules checklist — deferred to v8.7. v8.6 covers runtime + permissions + SLO dialect + product fitness. |
 
 ---
 

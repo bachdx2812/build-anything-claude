@@ -331,6 +331,137 @@
         "sync"
       ],
       "rationale": "Resizing uploads in-request burns CPU and ties response time to image dimensions."
+    },
+    "push_notifications": {
+      "satisfies_keys": [
+        "mobile.push",
+        "notifications.mobile",
+        "push.provider",
+        "stack.push"
+      ],
+      "accept_values": [
+        "apns",
+        "fcm",
+        "firebase",
+        "expo-notifications",
+        "onesignal",
+        "airship",
+        "iterable"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "polling"
+      ],
+      "rationale": "Mobile retention is push-driven. Polling-only kills battery + misses re-engagement window."
+    },
+    "biometric_auth": {
+      "satisfies_keys": [
+        "mobile.biometric",
+        "auth.biometric",
+        "stack.biometric"
+      ],
+      "accept_values": [
+        "faceid",
+        "touchid",
+        "local-authentication",
+        "biometric-prompt",
+        "expo-local-authentication",
+        "react-native-biometrics"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "password-only"
+      ],
+      "rationale": "Mobile auth without biometric forces password entry on every session — drops session resumption rate ~40%."
+    },
+    "offline_cache": {
+      "satisfies_keys": [
+        "mobile.offline",
+        "data.local_store",
+        "stack.offline_db"
+      ],
+      "accept_values": [
+        "sqlite",
+        "core-data",
+        "room",
+        "realm",
+        "watermelondb",
+        "sqflite",
+        "drift",
+        "isar",
+        "mmkv",
+        "asyncstorage"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "memory-only"
+      ],
+      "rationale": "Mobile network is flaky by definition. No local cache = no usable app on subway / elevator / rural."
+    },
+    "deep_links": {
+      "satisfies_keys": [
+        "mobile.deeplinks",
+        "routing.deeplinks",
+        "stack.deeplinks"
+      ],
+      "accept_values": [
+        "universal-links",
+        "app-links",
+        "expo-linking",
+        "react-native-deep-linking",
+        "branch",
+        "appsflyer",
+        "firebase-dynamic-links"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "custom-scheme-only"
+      ],
+      "rationale": "Custom URL scheme alone is hijackable by other apps + invisible to search; universal/app links required for production."
+    },
+    "location_services": {
+      "satisfies_keys": [
+        "mobile.location",
+        "location.provider",
+        "stack.location"
+      ],
+      "accept_values": [
+        "core-location",
+        "fused-location-provider",
+        "expo-location",
+        "react-native-geolocation",
+        "geolocator"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "ip-geo-only"
+      ],
+      "rationale": "IP-geolocation is country-level accurate at best. Anything ride/fitness/social needs device GPS."
+    },
+    "crash_reporter": {
+      "satisfies_keys": [
+        "mobile.crash_reporter",
+        "observability.crash",
+        "stack.crash_reporter"
+      ],
+      "accept_values": [
+        "sentry",
+        "crashlytics",
+        "bugsnag",
+        "instabug",
+        "datadog-rum-mobile"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "logcat-only"
+      ],
+      "rationale": "Mobile crashes happen on user devices you can't ssh into. Without remote crash reporter = blind."
     }
   },
   "_scale_tiers_meta": {
@@ -1733,6 +1864,351 @@
         },
         "rationale": "Multi-region listing cache, sharded booking DB, dedicated search clusters."
       }
+    }
+  },
+  "mobile-app-generic": {
+    "keywords": [
+      "mobile app",
+      "ios app",
+      "android app",
+      "native app",
+      "react native app",
+      "flutter app",
+      "expo app"
+    ],
+    "must_have": [
+      {
+        "name": "onboarding",
+        "synonyms": [
+          "signup",
+          "sign up",
+          "register",
+          "first-run",
+          "welcome flow"
+        ]
+      },
+      {
+        "name": "login",
+        "synonyms": [
+          "sign in",
+          "log in",
+          "authentication"
+        ]
+      },
+      {
+        "name": "profile",
+        "synonyms": [
+          "account",
+          "user profile",
+          "settings",
+          "preferences"
+        ]
+      },
+      {
+        "name": "push notifications",
+        "synonyms": [
+          "notifications",
+          "alerts",
+          "push"
+        ]
+      },
+      {
+        "name": "offline support",
+        "synonyms": [
+          "offline mode",
+          "local cache",
+          "works offline"
+        ]
+      }
+    ],
+    "scale_tiers": {
+      "mvp": {
+        "required_capabilities": [
+          "push_notifications",
+          "offline_cache",
+          "crash_reporter"
+        ],
+        "recommended_capabilities": [
+          "biometric_auth",
+          "deep_links"
+        ],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 0,
+          "max_usd_month": 50
+        },
+        "rationale": "Even MVP mobile must have push + offline cache + crash reporting. Anything less = unusable on real networks / undebuggable in production."
+      },
+      "growth": {
+        "required_capabilities": [
+          "push_notifications",
+          "offline_cache",
+          "crash_reporter",
+          "deep_links",
+          "biometric_auth"
+        ],
+        "recommended_capabilities": [],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 50,
+          "max_usd_month": 500
+        },
+        "rationale": "Growth-stage mobile demands deep-links (campaign attribution) + biometric (retention) + the MVP baseline."
+      },
+      "scale": {
+        "required_capabilities": [
+          "push_notifications",
+          "offline_cache",
+          "crash_reporter",
+          "deep_links",
+          "biometric_auth",
+          "cdn"
+        ],
+        "recommended_capabilities": [],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 500,
+          "max_usd_month": 5000
+        },
+        "rationale": "At scale every asset request goes through a CDN; OTA bundle delivery needs edge cache."
+      }
+    },
+    "stack_fitness": {
+      "required_capabilities": [
+        "push_notifications",
+        "offline_cache",
+        "crash_reporter"
+      ],
+      "recommended_capabilities": [
+        "biometric_auth",
+        "deep_links"
+      ],
+      "disqualified_packages": []
+    }
+  },
+  "mobile-fitness": {
+    "keywords": [
+      "fitness app",
+      "workout app",
+      "strava clone",
+      "running app",
+      "activity tracker",
+      "step counter"
+    ],
+    "must_have": [
+      {
+        "name": "activity tracking",
+        "synonyms": [
+          "track workout",
+          "record activity",
+          "log session",
+          "track run"
+        ]
+      },
+      {
+        "name": "location tracking",
+        "synonyms": [
+          "gps tracking",
+          "route recording",
+          "map workout"
+        ]
+      },
+      {
+        "name": "history view",
+        "synonyms": [
+          "past workouts",
+          "activity history",
+          "workout log"
+        ]
+      },
+      {
+        "name": "push notifications",
+        "synonyms": [
+          "reminders",
+          "workout reminders",
+          "motivational push"
+        ]
+      },
+      {
+        "name": "biometric login",
+        "synonyms": [
+          "faceid login",
+          "touchid",
+          "fingerprint"
+        ]
+      },
+      {
+        "name": "health integration",
+        "synonyms": [
+          "healthkit",
+          "google fit",
+          "samsung health"
+        ]
+      }
+    ],
+    "scale_tiers": {
+      "mvp": {
+        "required_capabilities": [
+          "push_notifications",
+          "offline_cache",
+          "location_services",
+          "crash_reporter"
+        ],
+        "recommended_capabilities": [
+          "biometric_auth"
+        ],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 20,
+          "max_usd_month": 200
+        },
+        "rationale": "Fitness without offline_cache + location = useless mid-run when signal drops."
+      },
+      "growth": {
+        "required_capabilities": [
+          "push_notifications",
+          "offline_cache",
+          "location_services",
+          "biometric_auth",
+          "crash_reporter",
+          "deep_links"
+        ],
+        "recommended_capabilities": [],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 200,
+          "max_usd_month": 2000
+        },
+        "rationale": "Growth-stage fitness apps drive social shares via deep-links (Strava activity URL → app)."
+      }
+    },
+    "stack_fitness": {
+      "required_capabilities": [
+        "push_notifications",
+        "offline_cache",
+        "location_services",
+        "crash_reporter"
+      ],
+      "recommended_capabilities": [
+        "biometric_auth"
+      ],
+      "disqualified_packages": []
+    }
+  },
+  "mobile-rideshare": {
+    "keywords": [
+      "rideshare app",
+      "uber clone mobile",
+      "lyft clone",
+      "ride hailing mobile",
+      "taxi app"
+    ],
+    "must_have": [
+      {
+        "name": "request ride",
+        "synonyms": [
+          "book ride",
+          "hail ride",
+          "order ride"
+        ]
+      },
+      {
+        "name": "real-time location",
+        "synonyms": [
+          "track driver",
+          "live location",
+          "driver eta"
+        ]
+      },
+      {
+        "name": "map view",
+        "synonyms": [
+          "map",
+          "google maps",
+          "mapbox",
+          "apple maps"
+        ]
+      },
+      {
+        "name": "payment",
+        "synonyms": [
+          "pay for ride",
+          "card payment",
+          "checkout"
+        ]
+      },
+      {
+        "name": "push notifications",
+        "synonyms": [
+          "driver arriving",
+          "ride status push"
+        ]
+      },
+      {
+        "name": "trip history",
+        "synonyms": [
+          "past rides",
+          "ride history",
+          "receipts"
+        ]
+      }
+    ],
+    "scale_tiers": {
+      "mvp": {
+        "required_capabilities": [
+          "push_notifications",
+          "offline_cache",
+          "location_services",
+          "realtime_transport",
+          "payment_processor",
+          "crash_reporter"
+        ],
+        "recommended_capabilities": [
+          "biometric_auth",
+          "deep_links"
+        ],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 100,
+          "max_usd_month": 1000
+        },
+        "rationale": "Rideshare without realtime_transport (websocket/polling) = users staring at a stale 'driver coming' screen. Without payment_processor = no business."
+      },
+      "growth": {
+        "required_capabilities": [
+          "push_notifications",
+          "offline_cache",
+          "location_services",
+          "realtime_transport",
+          "payment_processor",
+          "biometric_auth",
+          "deep_links",
+          "crash_reporter",
+          "geo_index"
+        ],
+        "recommended_capabilities": [],
+        "disqualified_packages": [],
+        "cost_band": {
+          "min_usd_month": 1000,
+          "max_usd_month": 20000
+        },
+        "rationale": "Growth-stage rideshare requires geo_index (nearest-driver lookup) + biometric (high session-value retention)."
+      }
+    },
+    "stack_fitness": {
+      "required_capabilities": [
+        "push_notifications",
+        "offline_cache",
+        "location_services",
+        "realtime_transport",
+        "payment_processor",
+        "crash_reporter"
+      ],
+      "recommended_capabilities": [
+        "biometric_auth",
+        "deep_links"
+      ],
+      "disqualified_packages": []
     }
   }
 }

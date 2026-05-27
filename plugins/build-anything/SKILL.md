@@ -58,7 +58,11 @@ Loop terminates on:
 
 Before any stage:
 1. Read `.build-anything.json` at project root. If absent, run `templates/build-anything-config.json` interactively.
-2. Detect `project_type` (frontend / backend / library / infra / mixed).
+2. Detect `project_type`. Enum:
+   - **Web/server:** `frontend` / `backend` / `library` / `infra` / `mixed`
+   - **Mobile (v8.6):** `mobile-ios` (Swift/SwiftUI native) / `mobile-android` (Kotlin/Compose native) / `mobile-rn` (React Native) / `mobile-flutter` (Flutter/Dart) / `mobile-expo` (Expo-managed RN)
+   - Detection heuristics: `*.xcodeproj` → mobile-ios; `build.gradle.kts` + `app/src/main/kotlin/` → mobile-android; `react-native` in package.json → mobile-rn (or mobile-expo if `expo` dep present); `pubspec.yaml` → mobile-flutter.
+   - **Dispatch effect (v8.6):** project_type ∈ `mobile-*` makes GATE-25-E2E dispatch `e2e-maestro.sh` instead of `e2e-playwright.sh`, activates `mobile-perms-check.sh` (Info.plist / AndroidManifest reconciliation), and switches GATE-UIUX to N/A_PENDING_REVIEWER (DOM-based audit doesn't apply — native UX persona deferred to v8.7).
 3. Detect `automation_level` (AL-0..AL-4). Default AL-2 (agent writes, human confirms).
 4. Set per-atom budget (cost ceiling default $5, iteration ceiling default 5).
 5. Read active plan (if any) from injected `## Plan Context`.
@@ -137,7 +141,7 @@ else → emit N/A_PENDING_REVIEWER (LAW-F6: never vacuous PASS)
 | 2 | Schema / Service (L2) | `schema` | GATE-1 allowlist | unauthorised file touch |
 | 3 | Red-team Spec | `spec` (adversarial mode) | spec-attacker pre-check | spec ambiguity remains |
 | **4** | **Build (L3, v8.4 BMAD-method)** | `implementer` + persona-prompt Task-dispatch (Dev-Backend, Dev-Frontend, Dev-Tests in parallel from `sub-skills/implementer/references/personas/`) | GATE-1 allowlist + GATE-2 commit + **GATE-IMPL** (dispatch coverage, allowlist subset, core_flow coverage) | persona files_changed outside allowlist subset, missing persona status report (silent-drop), tests-status missing declared core_flow |
-| 5 | Mechanical Gates | `gate-mechanical` | GATE-10 GATE-11 GATE-16 lint type **+ GATE-25-E2E (v8.2)** | coverage / mutation / property below threshold / Playwright fail |
+| 5 | Mechanical Gates | `gate-mechanical` | GATE-10 GATE-11 GATE-16 lint type **+ GATE-25-E2E (v8.2)** **+ GATE-25-E2E-MOBILE + GATE-MOBILE-PERMS (v8.6, mobile-* only)** | coverage / mutation / property below threshold / Playwright fail / Maestro fail / perms-mismatch |
 | 6 | Backend Integrity | `gate-backend` | GATE-18 a–f, GATE-19, GATE-20, GATE-21, GATE-23, GATE-24 | any sub-gate fail |
 | 6.5 | Cloud / Prod Reality (v8.1) | `gate-cloud` | GATE-22 IaC, GATE-25 deploy runbook, GATE-26 SLO+RTO, GATE-27 CI seal, GATE-28 scaling | drift / no rollback / SLO breach / mergeable main / p95 breach |
 | **6.7** | **UI/UX hard gate (v8.2)** | `gate-ui-ux` | GATE-UIUX | CRITICAL findings >0 OR HIGH > threshold |
@@ -174,6 +178,7 @@ The skill itself ships with mechanical regression tests under `scripts/meta/`. T
 | `real-atom-smoke-test.sh` | Real 1-file + 1-test atom → ≥3 PASS with `confidence=100`, 0 ERROR (silent-drop guard live), no PASS with `confidence=null` or `=0` (LAW-CL-95 retrofit hole), and `--confidence-floor=80` on an N/A-only run exits 2. |
 | `stack-fitness-test.sh` (v8.4 + v8.5) | 8 fixtures: v8.4 flat-block (youtube-clone with/without object-store, ecommerce LIKE-disqualifier, todo-app permissive PASS, unknown product N/A) + v8.5 tier-aware (growth_ok PASS, cost_underbudget FAIL, tier_disqualified_pkg FAIL). Guards both legacy flat-fitness path and new `scale_tiers[tier]` resolution path. |
 | `production-design-test.sh` (v8.5) | 7 fixtures: absent → N/A_PENDING_REVIEWER, full valid → PASS, missing section → FAIL, Capacity model adjectives-only (no digits) → FAIL, Failure modes <3 rows → FAIL, SLO targets missing p95 → FAIL, SLO targets missing %/availability → FAIL. Guards the production-design contract from silent erosion. |
+| `mobile-e2e-test.sh` (v8.6) | 7 fixtures: e2e-maestro web N/A, mobile-rn maestro.enabled=false → FAIL (LAW-F6), mobile-ios no flows_dir → FAIL, mobile-ios empty flows_dir → FAIL; mobile-perms web N/A, mobile-ios AVCaptureDevice without NSCameraUsageDescription → FAIL CRITICAL, mobile-android orphan CAMERA → FAIL HIGH strict. Guards GATE-25-E2E-MOBILE + GATE-MOBILE-PERMS from silent relaxation. |
 | `run-all-meta-gates.sh` | Runs every sibling meta-gate and aggregates verdicts. Exit 0 = no regression, 1 = skill regression, 2 = harness rot. Wire into CI / pre-ship. |
 
 ```bash

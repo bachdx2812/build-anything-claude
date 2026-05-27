@@ -73,6 +73,15 @@ JSON
 }
 
 # ── Trigger check ──────────────────────────────────────────────────
+# v8.6 (2026-05-27): mobile-* project_type values delegate to e2e-maestro.sh.
+# Playwright cannot drive iOS Simulator / Android Emulator; emit N/A here so
+# the orchestrator picks up the Maestro runner instead.
+case "$PROJECT_TYPE" in
+  mobile-*)
+    emit_e2e_na "project_type=$PROJECT_TYPE — mobile E2E is handled by e2e-maestro.sh"
+    ;;
+esac
+
 # v8.5.1 (2026-05-27): for project_type ∈ {frontend,mixed}, e2e.enabled MUST be true.
 # Setting enabled=false on a UI project is now FAIL (was N/A) because declared-but-skipped
 # E2E is the exact hole the YouTube-clone atom exposed: every browser-visible bug

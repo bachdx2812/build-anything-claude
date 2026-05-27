@@ -104,6 +104,12 @@ JSON
   exit 0
 }
 
+# ── Read project_type from .build-anything.json (v8.6: mobile SLI dialect) ─
+PROJECT_TYPE="backend"
+if [[ -f "$PROJECT_ROOT/.build-anything.json" ]]; then
+  PROJECT_TYPE=$(jq -r '.project_type // "backend"' "$PROJECT_ROOT/.build-anything.json" 2>/dev/null || echo "backend")
+fi
+
 # ── Preflight ─────────────────────────────────────────────────────
 if [[ ! -f "$DESIGN" ]]; then
   emit_na "production-design.md absent — Stage 1.B architect persona has not produced this artefact yet"
@@ -173,12 +179,31 @@ for sec in "${REQUIRED_SECTIONS[@]}"; do
       ;;
     "SLO targets")
       lower=$(echo "$body" | tr '[:upper:]' '[:lower:]')
-      if ! echo "$lower" | grep -q 'p95'; then
-        FINDINGS+=("section '## SLO targets' missing 'p95' — latency SLI required")
-      fi
-      if ! echo "$lower" | grep -qE '(%|availability)'; then
-        FINDINGS+=("section '## SLO targets' missing '%' or 'availability' — availability SLO required")
-      fi
+      case "$PROJECT_TYPE" in
+        mobile-*)
+          # v8.6 mobile SLI dialect: accept cold-start / jank / crash-free in
+          # addition to web's p95 / availability. Mobile cares about app-side
+          # perceived latency + stability, not backend p95.
+          latency_ok=0
+          stability_ok=0
+          echo "$lower" | grep -qE '(p95|p99|cold[- ]?start|jank|frame[- ]?drop|launch[- ]?time)' && latency_ok=1
+          echo "$lower" | grep -qE '(%|availability|crash[- ]?free|anr[- ]?rate)' && stability_ok=1
+          if [[ "$latency_ok" -eq 0 ]]; then
+            FINDINGS+=("section '## SLO targets' missing latency SLI — need p95/p99 OR cold-start OR jank/frame-drop OR launch-time for project_type=$PROJECT_TYPE")
+          fi
+          if [[ "$stability_ok" -eq 0 ]]; then
+            FINDINGS+=("section '## SLO targets' missing stability SLI — need availability/% OR crash-free OR ANR-rate for project_type=$PROJECT_TYPE")
+          fi
+          ;;
+        *)
+          if ! echo "$lower" | grep -q 'p95'; then
+            FINDINGS+=("section '## SLO targets' missing 'p95' — latency SLI required")
+          fi
+          if ! echo "$lower" | grep -qE '(%|availability)'; then
+            FINDINGS+=("section '## SLO targets' missing '%' or 'availability' — availability SLO required")
+          fi
+          ;;
+      esac
       ;;
   esac
 done

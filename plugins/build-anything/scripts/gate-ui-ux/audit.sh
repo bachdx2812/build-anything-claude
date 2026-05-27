@@ -76,6 +76,15 @@ JSON
 UI_ENABLED=$(cfg "ui.enabled" "false")
 PROJECT_TYPE=$(cfg "project_type" "backend")
 
+# v8.6: native mobile UI is not DOM-audited. Native HIG / Material 3 persona
+# is deferred to v8.7. Emit N/A so the gate doesn't fire CSS-based rules
+# against SwiftUI / Compose / RN / Flutter source.
+case "$PROJECT_TYPE" in
+  mobile-*)
+    emit_ui_na "project_type=$PROJECT_TYPE — native UI audit deferred to v8.7 (DOM rules don't apply)"
+    ;;
+esac
+
 if [[ "$UI_ENABLED" != "true" && "$PROJECT_TYPE" != "frontend" && "$PROJECT_TYPE" != "mixed" ]]; then
   emit_ui_na "no UI surface declared (ui.enabled=false, project_type=$PROJECT_TYPE)"
 fi

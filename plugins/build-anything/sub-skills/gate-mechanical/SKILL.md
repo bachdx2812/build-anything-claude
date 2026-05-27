@@ -27,6 +27,8 @@ description: Stage 5 — coverage + mutation + property-based + lint + type-chec
 | GATE-11 mutation | `scripts/mechanical/mutation-test.sh` | ≥ threshold; scope = changed files + 1-hop | Section C |
 | GATE-16 property | `scripts/mechanical/property-test-runner.sh` | every public pure function in diff has ≥ 1 property test | n/a (binary) |
 | **GATE-25-E2E (mandatory for project_type ∈ {frontend, mixed})** | `scripts/mechanical/e2e-playwright.sh` | Playwright spec files cover every declared `e2e.journeys[]`, `npx playwright test` exits 0, ≥1 passed, 0 failed, 0 vacuous-runs | binary |
+| **GATE-25-E2E-MOBILE (v8.6 — mandatory for project_type ∈ mobile-*)** | `scripts/mechanical/e2e-maestro.sh` | Maestro flows under `.maestro/` exist, `maestro test` exits 0, ≥1 passed, 0 failed, 0 vacuous-runs; `maestro.app_id` declared | binary |
+| **GATE-MOBILE-PERMS (v8.6 — mandatory for project_type ∈ mobile-*)** | `scripts/mechanical/mobile-perms-check.sh` | iOS Info.plist NS*UsageDescription keys + Android `<uses-permission>` reconciled against code API usage; 0 missing-description (CRITICAL) and 0 orphan (HIGH) findings under strict mode | binary |
 | lint | `scripts/mechanical/lint-check.sh` | zero errors | n/a |
 | type-check | `scripts/mechanical/type-check.sh` | zero errors | n/a |
 | build green | (project build cmd) | exit 0 | n/a |
@@ -39,6 +41,17 @@ description: Stage 5 — coverage + mutation + property-based + lint + type-chec
 5. Tear down on completion.
 
 Justification (added 2026-05-27 from atom 260527-0141-youtube-like-share post-mortem): the user-visible bugs "fail to load feed" + "watch page never renders" + "Upload nav ambiguous" were ALL trivially catchable by a 30-line Playwright smoke spec; the prior skill version declared GATE-25-E2E in the orchestrator table but the mechanical-gate sub-skill table omitted it, so it was never executed. This is the hole that fix closes.
+
+### Mobile dispatch (v8.6)
+
+When `project_type ∈ mobile-*` (mobile-ios | mobile-android | mobile-rn | mobile-flutter | mobile-expo) the runner MUST:
+
+1. **Skip Playwright entirely** — `e2e-playwright.sh` emits `N/A_PENDING_REVIEWER` on `mobile-*` (Playwright cannot drive iOS Simulator / Android Emulator).
+2. **Dispatch `e2e-maestro.sh`** — Maestro is the cross-platform mobile E2E runner. Reads `maestro.{enabled,flows_dir,app_id,platform,boot,run_cmd}` from `.build-anything.json`.
+3. **Dispatch `mobile-perms-check.sh`** — reconciles iOS `Info.plist` `NS*UsageDescription` keys + Android `AndroidManifest.xml` `<uses-permission>` entries against actual code API usage. Two-way check: orphan-perm (declared but unused → app-store rejection risk) AND missing-usage-description (used but undeclared → runtime crash).
+4. **Skip GATE-UIUX** — `gate-ui-ux/audit.sh` emits `N/A_PENDING_REVIEWER` on `mobile-*` because DOM-based selectors / CSS rules don't apply to SwiftUI / Compose / native widgets. Native UX persona (iOS HIG / Material 3) deferred to v8.7.
+
+LAW-F6 mandate: `project_type ∈ mobile-*` AND `maestro.enabled=false` → FAIL (declared-but-skipped E2E is the exact hole v8.5.1 closed for web; v8.6 closes the equivalent hole for mobile).
 
 All scripts emit a single-number primary metric to stdout (usable as `/ck:autoresearch` Verify command in AL-4 self-heal).
 
