@@ -12,6 +12,14 @@ log_step iac-drift "starting"
 IAC_DIR=$(cfg "cloud.iac.dir" "")
 IAC_KIND=$(cfg "cloud.iac.kind" "terraform")   # terraform | opentofu | pulumi
 if [[ -z "$IAC_DIR" || "$IAC_DIR" == "null" ]]; then
+  # v8.8 LAW-TIER-CLOUD — at scale+ tiers IaC is MANDATORY; unset config is FAIL,
+  # not N/A (audit §6/§12/§14: declared hyperscale, delivered single host, gate green).
+  SCALE_TIER=$(jq -r '.declared.scale_tier // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || echo "")
+  if [[ "$SCALE_TIER" == "scale" || "$SCALE_TIER" == "hyperscale" ]]; then
+    log_step iac-drift "tier=$SCALE_TIER mandates IaC but cloud.iac.dir unset — FAIL (LAW-TIER-CLOUD)"
+    emit_evidence "GATE-22" false "iac-drift.json" "{\"tier\":\"$SCALE_TIER\",\"reason\":\"scale_tier mandates IaC but no cloud.iac.dir configured — declared big, delivered nothing\"}"
+    exit 1
+  fi
   log_step iac-drift "no IaC dir configured — N/A_PENDING_REVIEWER"
   emit_na_pending "GATE-22" "iac-drift.json" "no cloud.iac.dir configured; reviewer must verify atom touches no cloud infra OR wire IaC"
   exit 0

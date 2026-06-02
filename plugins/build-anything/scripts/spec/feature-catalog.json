@@ -660,6 +660,136 @@
         "none"
       ],
       "rationale": "Tracker blocking is table-stakes for any privacy-pitched browser."
+    },
+    "llm_inference": {
+      "satisfies_keys": [
+        "ai.provider",
+        "ai.llm",
+        "stack.ai",
+        "stack.llm",
+        "backend.ai.provider",
+        "ai.inference"
+      ],
+      "accept_values": [
+        "openai",
+        "anthropic",
+        "claude",
+        "gpt-4o",
+        "gpt-4",
+        "azure-openai",
+        "bedrock",
+        "vertex-ai",
+        "gemini",
+        "vllm",
+        "ollama",
+        "together",
+        "groq",
+        "mistral",
+        "cohere",
+        "huggingface",
+        "replicate",
+        "sashabaranov"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "mock",
+        "stub",
+        "template",
+        "hardcoded",
+        "fmt.sprintf"
+      ],
+      "wiring": {
+        "dep_packages": [
+          "openai",
+          "anthropic",
+          "@anthropic-ai/sdk",
+          "@ai-sdk",
+          "ai-sdk",
+          "langchain",
+          "litellm",
+          "boto3",
+          "google-generativeai",
+          "@google/generative-ai",
+          "cohere",
+          "mistralai",
+          "together",
+          "groq",
+          "replicate",
+          "ollama",
+          "vllm",
+          "go-openai",
+          "sashabaranov"
+        ],
+        "code_symbols": [
+          "ChatCompletion",
+          "createChatCompletion",
+          "CreateChatCompletion",
+          "chat.completions",
+          "messages.create",
+          "generateContent",
+          "generate_content",
+          "InvokeModel",
+          "completions.create"
+        ],
+        "min_impls": 1
+      },
+      "rationale": "An AI product whose AI is a string template is the mandarin failure (audit §8/§16.1). LLM inference must be wired to a real provider SDK + an actual inference call, not fmt.Sprintf."
+    },
+    "multi_provider_ai": {
+      "satisfies_keys": [
+        "ai.providers",
+        "ai.multi_provider",
+        "stack.ai_providers",
+        "backend.ai.providers",
+        "ai.fallback"
+      ],
+      "accept_values": [
+        "openai+anthropic",
+        "openai+claude",
+        "openai+claude+vllm",
+        "multi",
+        "fallback-chain",
+        "router",
+        "openai,anthropic"
+      ],
+      "disqualified_values": [
+        "",
+        "single",
+        "none",
+        "one-provider"
+      ],
+      "wiring": {
+        "dep_packages": [
+          "openai",
+          "anthropic",
+          "@anthropic-ai/sdk",
+          "langchain",
+          "litellm",
+          "bedrock",
+          "boto3",
+          "google-generativeai",
+          "@google/generative-ai",
+          "vertexai",
+          "vllm",
+          "groq",
+          "together",
+          "mistralai",
+          "cohere",
+          "go-openai"
+        ],
+        "code_symbols": [
+          "Provider",
+          "fallback",
+          "providerChain",
+          "ProviderInterface",
+          "NewProvider",
+          "provider_registry",
+          "FallbackChain"
+        ],
+        "min_impls": 2
+      },
+      "rationale": "Audit §16.1: multi-provider AI with fallback was DECLARED but internal/ai was empty + zero SDKs. Requires >=2 distinct provider footprints (dependency or symbol), not a single-provider claim dressed as multi."
     }
   },
   "_scale_tiers_meta": {
@@ -2716,6 +2846,150 @@
         "tracker_blocker",
         "crash_reporter"
       ]
+    }
+  },
+  "ai-app": {
+    "keywords": [
+      "ai app",
+      "llm app",
+      "ai assistant",
+      "chatbot",
+      "ai tutor",
+      "language learning",
+      "ai-powered",
+      "gpt app",
+      "ai agent",
+      "rag app",
+      "copilot",
+      "ai tutoring",
+      "learning platform"
+    ],
+    "must_have": [
+      {
+        "name": "user accounts",
+        "synonyms": [
+          "register",
+          "login",
+          "auth"
+        ]
+      },
+      {
+        "name": "ai generation",
+        "synonyms": [
+          "ai response",
+          "llm",
+          "generate",
+          "completion",
+          "inference",
+          "prompt",
+          "dynamic lesson"
+        ]
+      },
+      {
+        "name": "conversation history",
+        "synonyms": [
+          "chat history",
+          "session",
+          "thread",
+          "message history",
+          "progress"
+        ]
+      },
+      {
+        "name": "prompt handling",
+        "synonyms": [
+          "prompt",
+          "input",
+          "query",
+          "ask"
+        ]
+      }
+    ],
+    "stack_fitness": {
+      "required_capabilities": [
+        "llm_inference",
+        "relational_db_concurrent_writer"
+      ],
+      "recommended_capabilities": [
+        "cache_layer",
+        "multi_provider_ai"
+      ],
+      "rationale": "An AI product MUST wire a real LLM provider; a hardcoded/template response is not AI. DB for users + history."
+    },
+    "scale_tiers": {
+      "mvp": {
+        "required_capabilities": [
+          "llm_inference",
+          "relational_db_concurrent_writer"
+        ],
+        "recommended_capabilities": [
+          "cache_layer",
+          "multi_provider_ai"
+        ],
+        "disqualified_packages": [
+          "better-sqlite3"
+        ],
+        "cost_band": {
+          "min_usd_month": 0,
+          "max_usd_month": 300
+        },
+        "rationale": "Single provider acceptable at MVP, but the inference call must be real (wired SDK), not fmt.Sprintf."
+      },
+      "growth": {
+        "required_capabilities": [
+          "llm_inference",
+          "relational_db_concurrent_writer",
+          "cache_layer"
+        ],
+        "recommended_capabilities": [
+          "multi_provider_ai",
+          "fanout_queue"
+        ],
+        "disqualified_packages": [
+          "better-sqlite3"
+        ],
+        "cost_band": {
+          "min_usd_month": 300,
+          "max_usd_month": 3000
+        },
+        "rationale": "Cache LLM responses to control token spend; provider fallback recommended as usage grows."
+      },
+      "scale": {
+        "required_capabilities": [
+          "llm_inference",
+          "multi_provider_ai",
+          "relational_db_concurrent_writer",
+          "cache_layer",
+          "fanout_queue"
+        ],
+        "recommended_capabilities": [],
+        "disqualified_packages": [
+          "better-sqlite3"
+        ],
+        "cost_band": {
+          "min_usd_month": 3000,
+          "max_usd_month": 50000
+        },
+        "rationale": "Multi-provider fallback MANDATORY — a single-provider outage is a full outage at scale; async inference queue for long generations."
+      },
+      "hyperscale": {
+        "required_capabilities": [
+          "llm_inference",
+          "multi_provider_ai",
+          "relational_db_concurrent_writer",
+          "cache_layer",
+          "fanout_queue"
+        ],
+        "recommended_capabilities": [],
+        "disqualified_packages": [
+          "better-sqlite3"
+        ],
+        "cost_band": {
+          "min_usd_month": 50000,
+          "max_usd_month": 9999999
+        },
+        "rationale": "Provider router + regional inference + cost-based routing; single-provider lock-in is an availability + cost risk."
+      }
     }
   }
 }

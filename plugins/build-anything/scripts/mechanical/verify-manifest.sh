@@ -27,6 +27,12 @@ while IFS=$'\t' read -r REL_PATH REC_SHA; do
     echo "  $REL_PATH: FAIL (file missing)"
     ART_FAIL=$((ART_FAIL+1)); continue
   fi
+  # v8.8 — a 0-byte artifact has a valid sha but is a stub. Empty file counted
+  # as "delivered" is the audit §10 class (internal/ai counted but empty).
+  if [[ ! -s "$ABS" ]]; then
+    echo "  $REL_PATH: FAIL (empty — 0 bytes; stub artifact, v8.8)"
+    ART_FAIL=$((ART_FAIL+1)); continue
+  fi
   ACTUAL=$(shasum -a 256 "$ABS" 2>/dev/null | awk '{print $1}')
   if [[ "$ACTUAL" == "$REC_SHA" ]]; then
     echo "  $REL_PATH: PASS"

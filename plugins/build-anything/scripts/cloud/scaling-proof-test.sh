@@ -11,6 +11,13 @@ log_step scaling "starting"
 
 SC_JSON=$(cfg "cloud.scaling" "{}")
 if [[ "$SC_JSON" == "{}" || "$SC_JSON" == "null" ]]; then
+  # v8.8 LAW-TIER-CLOUD — scale+ tiers claim horizontal scale; prove it or FAIL.
+  SCALE_TIER=$(jq -r '.declared.scale_tier // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || echo "")
+  if [[ "$SCALE_TIER" == "scale" || "$SCALE_TIER" == "hyperscale" ]]; then
+    log_step scaling "tier=$SCALE_TIER mandates scaling proof but cloud.scaling unset — FAIL (LAW-TIER-CLOUD)"
+    emit_evidence "GATE-28" false "scaling-proof.json" "{\"tier\":\"$SCALE_TIER\",\"reason\":\"scale_tier claims horizontal scale but no cloud.scaling load proof configured\"}"
+    exit 1
+  fi
   log_step scaling "no scaling configured — N/A_PENDING_REVIEWER"
   emit_na_pending "GATE-28" "scaling-proof.json" "no cloud.scaling configured; reviewer must set target_url / ramp / p95_budget_ms OR mark atom as single-instance"
   exit 0

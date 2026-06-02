@@ -74,6 +74,20 @@ if [[ "$SKIP_INTENT_CHECK" -eq 0 ]]; then
   log_step orchestrator "GATE-INTENT preflight OK action=READY confidence=$INTENT_CONF"
 fi
 
+# ── v8.8 --fast tier-bind (depth-skip forbidden at scale+) ──────────────
+# Audit §14 traced the mandarin slip to automation_level silently skipping the
+# red-team + secondary review without asking. At scale+ tiers, depth-skip is not
+# permitted — surface the choice (HALT), never auto-skip.
+if [[ "$SKIP_INTENT_CHECK" -eq 0 ]]; then
+  ST=$(jq -r '.declared.scale_tier // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || echo "")
+  FAST_FLAG=$(jq -r '.automation.fast // false' "$PROJECT_ROOT/.build-anything.json" 2>/dev/null || echo false)
+  [[ "${BUILD_ANYTHING_FAST:-0}" == "1" ]] && FAST_FLAG=true
+  if [[ ("$ST" == "scale" || "$ST" == "hyperscale") && "$FAST_FLAG" == "true" ]]; then
+    log_step orchestrator "EXIT 2 --fast/automation.fast forbidden at scale_tier=$ST (v8.8): depth-skip not permitted; remove fast OR downgrade tier explicitly"
+    exit 2
+  fi
+fi
+
 # ── --no-witness production guard (LAW-17) ──────────────────────────────
 # --no-witness is a smoke-test / CI-local affordance. In production / boss-
 # facing runs it must not silently bypass LAW-17. Allow only when caller
@@ -83,6 +97,12 @@ if [[ "$NO_WITNESS" -eq 1 ]]; then
   [[ "${BUILD_ANYTHING_ALLOW_NO_WITNESS:-0}" == "1" ]] && ALLOW=1
   ENV_FIELD=$(jq -r '.env // "prod"' "$PROJECT_ROOT/.build-anything.json" 2>/dev/null || echo "prod")
   [[ "$ENV_FIELD" == "local" || "$ENV_FIELD" == "dev" || "$ENV_FIELD" == "test" || "$ENV_FIELD" == "ci" ]] && ALLOW=1
+  # v8.8 LAW-WITNESS-TIER — scale+ tier overrides any env allowance: witness mandatory.
+  NW_TIER=$(jq -r '.declared.scale_tier // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || echo "")
+  if [[ "$NW_TIER" == "scale" || "$NW_TIER" == "hyperscale" ]]; then
+    ALLOW=0
+    log_step orchestrator "scale_tier=$NW_TIER → --no-witness refused regardless of env (LAW-WITNESS-TIER)"
+  fi
   if [[ "$ALLOW" -eq 0 ]]; then
     log_step orchestrator "EXIT 2 --no-witness refused: env=$ENV_FIELD (must be local/dev/test/ci) and BUILD_ANYTHING_ALLOW_NO_WITNESS not set — LAW-17 mandates witness in prod"
     exit 2
@@ -102,6 +122,10 @@ GATES=(
   "mech-load::$MECH_DIR/load-test-smoke.sh::gate-mechanical/load.json"
   "mech-obs::$MECH_DIR/observability-check.sh::gate-mechanical/observability.json"
   "mech-property::$MECH_DIR/property-test-runner.sh::gate-mechanical/property.json"
+  "mech-stub::$MECH_DIR/stub-detection.sh::gate-mechanical/stub-detection.json"
+  "mech-substance::$MECH_DIR/allowlist-substance-check.sh::gate-mechanical/substance.json"
+  "mech-e2e-sem::$MECH_DIR/e2e-semantic-floor-check.sh::gate-mechanical/e2e-semantic.json"
+  "mech-assert::$MECH_DIR/test-assertion-presence-check.sh::gate-mechanical/assertion-presence.json"
   "sec-secret::$SEC_DIR/secret-scan.sh::gate-security/secret-scan.json"
   "sec-sqli::$SEC_DIR/sql-injection-scan.sh::gate-security/sql-injection.json"
   "sec-arch::$SEC_DIR/architecture-bridge-check.sh::gate-security/architecture.json"
@@ -116,14 +140,20 @@ GATES=(
   "be-contract::$BACK_DIR/api-contract-test.sh::gate-backend/api-contract.json"
   "be-cache::$BACK_DIR/cache-invariant-test.sh::gate-backend/cache-invariant.json"
   "be-ratelimit::$BACK_DIR/rate-limit-test.sh::gate-backend/rate-limit.json"
+  "be-seed::$BACK_DIR/data-seed-check.sh::gate-backend/data-seed.json"
+  "be-auth-rt::$BACK_DIR/auth-roundtrip-test.sh::gate-backend/auth-roundtrip.json"
   "cloud-iac::$CLOUD_DIR/iac-drift-check.sh::gate-cloud/iac-drift.json"
   "cloud-ci::$CLOUD_DIR/ci-gate-seal-check.sh::gate-cloud/ci-gate-seal.json"
   "cloud-deploy::$CLOUD_DIR/deployment-runbook-test.sh::gate-cloud/deploy-runbook.json"
   "cloud-slo::$CLOUD_DIR/slo-availability-test.sh::gate-cloud/slo-availability.json"
   "cloud-scaling::$CLOUD_DIR/scaling-proof-test.sh::gate-cloud/scaling-proof.json"
+  "cloud-art::$CLOUD_DIR/artifact-existence-check.sh::gate-cloud/artifact-existence.json"
   "spec-pfc::$SPEC_DIR/product-feature-coverage.sh::gate-spec/product-feature-coverage.json"
+  "spec-pfc-wire::$SPEC_DIR/feature-wiring-check.sh::gate-spec/feature-wiring.json"
   "spec-stack::$SPEC_DIR/stack-fitness-check.sh::gate-spec/stack-fitness.json"
+  "spec-wire-stack::$SPEC_DIR/capability-wiring-check.sh::gate-spec/capability-wiring.json"
   "spec-prod-design::$SPEC_DIR/production-design-gate.sh::gate-spec/prod-design.json"
+  "spec-prod-design-art::$SPEC_DIR/prod-design-artifact-check.sh::gate-spec/prod-design-artifact.json"
   "spec-bmad-prd::$SPEC_DIR/bmad-prd-gate.sh::gate-spec/bmad-prd.json"
   "impl-coverage::$IMPL_DIR/implementer-coverage-gate.sh::gate-impl/coverage.json"
   "ui-uiux::$UIUX_DIR/audit.sh::gate-ui-ux/ui-audit.json"
@@ -131,7 +161,7 @@ GATES=(
 
 contains() { local x="$1"; shift; for e in "$@"; do [[ "$e" == "$x" ]] && return 0; done; return 1; }
 
-mkdir -p "$ATOM_DIR/gate-mechanical" "$ATOM_DIR/gate-security" "$ATOM_DIR/gate-backend" "$ATOM_DIR/gate-cloud" "$ATOM_DIR/gate-spec" "$ATOM_DIR/gate-ui-ux" "$ATOM_DIR/gate-impl"
+mkdir -p "$ATOM_DIR/gate-mechanical" "$ATOM_DIR/gate-security" "$ATOM_DIR/gate-backend" "$ATOM_DIR/gate-cloud" "$ATOM_DIR/gate-spec" "$ATOM_DIR/gate-ui-ux" "$ATOM_DIR/gate-impl" "$ATOM_DIR/gate-reverify"
 
 RAN=0
 SKIPPED=0
@@ -236,7 +266,7 @@ log_step orchestrator "sha256=$SHA_VAL"
 if [[ "$NO_WITNESS" -eq 0 ]]; then
   WITNESS_SCRIPT="$SCRIPT_DIR/witness-sign.sh"
   if [[ -f "$WITNESS_SCRIPT" ]]; then
-    bash "$WITNESS_SCRIPT" --atom-dir "$ATOM_DIR" --sha "$SHA_VAL" || \
+    bash "$WITNESS_SCRIPT" --atom-dir "$ATOM_DIR" --sha "$SHA_VAL" --project-root "$PROJECT_ROOT" || \
       log_step orchestrator "witness-sign failed (non-blocking)"
   else
     # placeholder witness for environments without cosign
@@ -251,6 +281,28 @@ JSON
   fi
 fi
 
+# ── v8.8 GATE-REVERIFY (independent re-run) ─────────────────────────
+# Core anti-self-attestation check (audit §1/§16.7): re-execute a sample of
+# behavioral gates against the just-built manifest. A recorded PASS that does
+# not reproduce is a self-attestation breach and blocks the atom. Runs AFTER
+# manifest aggregation because it reads the recorded verdicts from manifest.json.
+REVERIFY_FAIL=0
+REVERIFY_SCRIPT="$SCRIPT_DIR/reverify-sample.sh"
+if [[ -f "$REVERIFY_SCRIPT" ]]; then
+  RV_EXIT=0
+  bash "$REVERIFY_SCRIPT" --atom-dir "$ATOM_DIR" --project-root "$PROJECT_ROOT" >/dev/null 2>&1 || RV_EXIT=$?
+  RV_OUT="$ATOM_DIR/gate-reverify/reverify.json"
+  if [[ -f "$RV_OUT" ]]; then
+    RV_VERDICT=$(jq -r '.verdict // "MISSING"' "$RV_OUT" 2>/dev/null || echo MISSING)
+    if [[ "$RV_VERDICT" == "FAIL" ]]; then
+      REVERIFY_FAIL=1
+      log_step orchestrator "GATE-REVERIFY FAIL — self-attestation breach (see $RV_OUT)"
+    else
+      log_step orchestrator "GATE-REVERIFY verdict=$RV_VERDICT"
+    fi
+  fi
+fi
+
 # ── Final summary line ─────────────────────────────────────────────
 SUMMARY=$(jq -c '.summary' "$MANIFEST")
 echo "$SUMMARY"
@@ -258,8 +310,8 @@ echo "$SUMMARY"
 # exit non-zero if any gate failed or errored (v8.3: ERROR != FAIL, both block)
 FAIL_COUNT=$(jq -r '.summary.fail' "$MANIFEST")
 ERR_COUNT=$(jq -r '.summary.error // 0' "$MANIFEST")
-if [[ "$FAIL_COUNT" -gt 0 || "$ERR_COUNT" -gt 0 ]]; then
-  log_step orchestrator "EXIT 1 (fail=$FAIL_COUNT error=$ERR_COUNT)"
+if [[ "$FAIL_COUNT" -gt 0 || "$ERR_COUNT" -gt 0 || "$REVERIFY_FAIL" -eq 1 ]]; then
+  log_step orchestrator "EXIT 1 (fail=$FAIL_COUNT error=$ERR_COUNT reverify_breach=$REVERIFY_FAIL)"
   exit 1
 fi
 

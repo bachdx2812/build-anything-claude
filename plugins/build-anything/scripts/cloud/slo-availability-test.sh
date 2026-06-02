@@ -12,6 +12,13 @@ log_step slo "starting"
 
 SLO_JSON=$(cfg "cloud.slo" "{}")
 if [[ "$SLO_JSON" == "{}" || "$SLO_JSON" == "null" ]]; then
+  # v8.8 LAW-TIER-CLOUD — scale+ tiers MUST declare an SLO; unset is FAIL not N/A.
+  SCALE_TIER=$(jq -r '.declared.scale_tier // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || echo "")
+  if [[ "$SCALE_TIER" == "scale" || "$SCALE_TIER" == "hyperscale" ]]; then
+    log_step slo "tier=$SCALE_TIER mandates SLO but cloud.slo unset — FAIL (LAW-TIER-CLOUD)"
+    emit_evidence "GATE-26" false "slo-availability.json" "{\"tier\":\"$SCALE_TIER\",\"reason\":\"scale_tier mandates an availability SLO but no cloud.slo configured\"}"
+    exit 1
+  fi
   log_step slo "no SLO configured — N/A_PENDING_REVIEWER"
   emit_na_pending "GATE-26" "slo-availability.json" "no cloud.slo configured; reviewer must declare target/window/probe OR mark atom non-prod"
   exit 0

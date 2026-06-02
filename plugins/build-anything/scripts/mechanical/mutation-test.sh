@@ -15,6 +15,15 @@ RUN_ROOT="$PROJECT_ROOT"
 [[ -n "$STACK_DIR" ]] && RUN_ROOT="$PROJECT_ROOT/$STACK_DIR"
 
 THRESH=$(threshold "gates.mechanical.mutation_score" 60)
+# v8.8 — tier-aware floor: scale+ tiers demand stronger tests on the changed diff
+# (audit §16.4: a 60% floor lets 40% of mutants survive on headline feature files).
+SCALE_TIER=$(jq -r '.declared.scale_tier // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || echo "")
+if [[ "$SCALE_TIER" == "scale" || "$SCALE_TIER" == "hyperscale" ]]; then
+  if awk -v t="$THRESH" 'BEGIN{exit !(t<75)}'; then
+    log_step mutation "tier=$SCALE_TIER raises mutation floor ${THRESH}→75 (v8.8)"
+    THRESH=75
+  fi
+fi
 OUT="$ATOM_DIR/gate-mechanical/mutation.json"
 
 # scope to changed source files only — reads `git diff` via _common

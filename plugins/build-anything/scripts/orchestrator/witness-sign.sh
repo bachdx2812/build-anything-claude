@@ -42,6 +42,18 @@ fi
 # Config key_path takes precedence over COSIGN_KEY env if both set
 [[ -n "$CFG_KEY_PATH" ]] && COSIGN_KEY="$CFG_KEY_PATH"
 
+# v8.8 LAW-WITNESS-TIER — a placeholder witness is acceptable for local/dev toy
+# atoms, but NEVER at scale+ tier or in prod env. Force refuse_placeholder so an
+# unsigned manifest cannot seal a serious build (audit §1/§16.7 self-attestation).
+SCALE_TIER=$(jq -r '.declared.scale_tier // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || echo "")
+# env default is empty (NOT "prod") — only an EXPLICIT env=prod forces the witness,
+# so a dev/local build whose CFG path didn't resolve is not silently made strict.
+ENV_FIELD=$(jq -r '.env // empty' "$CFG" 2>/dev/null || echo "")
+if [[ "$SCALE_TIER" == "scale" || "$SCALE_TIER" == "hyperscale" || "$ENV_FIELD" == "prod" ]]; then
+  REFUSE_PLACEHOLDER="true"
+  log_step witness "tier=$SCALE_TIER env=$ENV_FIELD → refuse_placeholder forced true (LAW-WITNESS-TIER)"
+fi
+
 log_step witness "atom=$ATOM_DIR sha=$SHA refuse_placeholder=$REFUSE_PLACEHOLDER key_path=${COSIGN_KEY:-none}"
 
 if ! command -v cosign >/dev/null 2>&1; then

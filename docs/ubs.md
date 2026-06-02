@@ -30,14 +30,15 @@ What the repo contains and why each agent needs it:
 | `plugins/build-anything/scripts/meta/*.sh` | Skill self-regression suite | Proves the gates themselves do not silently rot (LAW-F6 + LAW-CL-95 invariants) |
 | `plugins/build-anything/sub-skills/spec/references/personas/{pm,architect,ux,sm}-persona.md` | BMAD-method persona prompts | Stage 1.B — PM / Architect / UX produce PRD + architecture + ux-spec; **Stage 1.B.5 — SM (v8.5.2) breaks epic → atom-plan/plan.json + per-story files** |
 | `plugins/build-anything/sub-skills/implementer/references/personas/{dev-backend,dev-frontend,dev-tests}.md` | BMAD-method dev persona prompts | Stage 4 — parallel implementer dispatch + GATE-IMPL coverage |
-| `plugins/build-anything/scripts/spec/feature-catalog.json` | Product feature catalog (9 product types × 4 scale tiers) | Stage 1.C / 1.D — must-have features per product type, scale-tier capability matrix, tier-disqualified packages |
+| `plugins/build-anything/scripts/spec/feature-catalog.json` | Product feature catalog (product types × 4 scale tiers), incl. **`ai-app` + `llm_inference` / `multi_provider_ai` capabilities (v8.8)** | Stage 1.C / 1.D — must-have features per product type, scale-tier capability matrix, tier-disqualified packages. AI products require a wired LLM provider; `multi_provider_ai` (≥2 wired providers) is mandatory at scale+ — closes audit §16.1 "multi-provider declared, internal/ai empty" |
+| `plugins/build-anything/scripts/spec/_wiring-lang-adapters.sh` + `capability-wiring-check.sh` / `feature-wiring-check.sh` / `prod-design-artifact-check.sh` + `mechanical/stub-detection.sh` (v8.8) | Declared-vs-WIRED resolvers + gates | Stage 1.D / Stage 5 — verify a declared capability/feature/design-claim leaves a real footprint (dependency, code symbol, config artifact) and is not a stub/provenance-lie; declaration alone no longer passes |
 
 **How to consume the repo:**
 
 1. `git clone https://github.com/bachdx2812/build-anything-claude && cd build-anything-claude`
 2. Inspect `plugins/build-anything/SKILL.md` for the 17-stage flow.
 3. Treat every `scripts/**/*.sh` as the binding interpretation of the corresponding law/gate in this doc. If the doc and the script disagree, the **script wins** (the script is what the meta-suite tests against).
-4. Run `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh` as a sanity check before adopting any gate locally — expect `pass=8 fail=0` (v8.5.2 added `sm-breakdown-test.sh`).
+4. Run `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh` as a sanity check before adopting any gate locally — expect `pass=23 fail=0` (v8.8 added 11 wiring/self-attestation meta-gates: capability-wiring, feature-wiring, prod-design-artifact, stub-detection, allowlist-substance, data-seed, auth-roundtrip, e2e-semantic-floor, test-assertion-presence, cloud-artifact, reverify).
 5. Treat the repo as **read + adapt**: the bash gates are stack-agnostic and intended to be invoked directly by any harness (Comet, Devin's shell, Kimi, Claude Code, plain CI). No Claude-specific tooling is required to run them.
 
 The doc you are reading + this repo together = the UBS executable charter. Reading only one of them is not enough.
@@ -48,8 +49,9 @@ The doc you are reading + this repo together = the UBS executable charter. Readi
 
 UBS turns "the AI said it works" into a manifest of mechanically-verifiable evidence.
 
-- **18 Hard Laws** (LAW-01..17 + LAW-CL-95) — inviolable. Violation = atom HALT + automation-ladder demotion.
-- **31 Hard Gates** (GATE-1..28 + GATE-INTENT + GATE-PFC + GATE-UIUX) — each a script returning `PASS` / `FAIL` / `N/A_PENDING_REVIEWER` / `ERROR` on stdout, plus a JSON verdict on disk carrying `{confidence: 0-100, ambiguities[]}`.
+- **18 core Hard Laws** (LAW-01..17 + LAW-CL-95) + **9 v8.8 wiring/self-attestation laws** (LAW-WIRE, LAW-STUB, LAW-SUBSTANCE, LAW-SEED, LAW-AUTH-RT, LAW-ASSERT, LAW-TIER-CLOUD, LAW-WITNESS-TIER, LAW-REVERIFY) — inviolable. Violation = atom HALT + automation-ladder demotion.
+- **Hard Gates** — GATE-1..28 + GATE-INTENT/PFC/UIUX + the **v8.8 wiring-verification gates** (GATE-WIRE-STACK, GATE-PFC-WIRE, GATE-PROD-DESIGN-ART, GATE-STUB, GATE-SUBSTANCE, GATE-SEED, GATE-AUTH-RT, GATE-E2E-SEM, GATE-ASSERT, GATE-CLOUD-ART, GATE-REVERIFY) — each a script returning `PASS` / `FAIL` / `N/A_PENDING_REVIEWER` / `ERROR` on stdout, plus a JSON verdict on disk carrying `{confidence: 0-100, ambiguities[]}`.
+- **v8.8 cure (declared-vs-wired):** spec gates no longer pass on declaration alone — a capability/feature/design-claim must leave a real footprint in built code, stubs + provenance-lies + empty dirs FAIL, and a recorded PASS must survive an independent re-run (no self-sealed homework). See **§A v8.8 laws** + **§B.5**.
 - **6 adversarial reviewers** (Opus-class) under the framing "your job is to FAIL this atom if you can." Consensus rule: ANY FAIL = atom FAIL.
 - **Autonomous loop** — `INTENT → PLAN → BUILD → VERIFY → SELF-HEAL → SEAL → SHIP`. Each iteration narrows the failing gate's score toward 0. Circuit breaker on cost / iter / oscillation.
 - **13 / 13 production-reality layers** covered.
@@ -155,6 +157,28 @@ When body is empty, gate MUST emit `verdict: "N/A_PENDING_REVIEWER"` (passed: nu
 
 **LAW-CL-95 corollary — SILENT DROP IS NOT ALLOWED.** If a gate script exits with any code but does not write its expected JSON output, the orchestrator MUST synthesise an `ERROR` verdict. ERROR ≠ FAIL (different remediation: ERROR means "re-run the crashed script", FAIL means "the assertion failed"). Both block the atom.
 
+### v8.8 — Wiring-verification & self-attestation laws
+
+These close the 2026-06 audit finding: v8.7.2 gates verified the *declaration* (config + spec text), not the *wiring* (built code). A build could declare an honest stack, name every feature in the spec, and still ship empty packages + stubbed functions — and pass. Every law below maps to a script + an inversion meta-gate.
+
+**LAW-WIRE DECLARED ⇒ WIRED** — a declared capability or must-have feature MUST leave a machine-checkable footprint in the built repo: a dependency in a manifest, a symbol in source, OR a non-empty config/infra artifact. A value present only in `.build-anything.json` is a declaration, never evidence. `media_storage:"s3"` with no S3 SDK in dependencies and no S3 symbol in source = FAIL. The footprint search MUST exclude `.build-anything.json` itself. Enforced by GATE-WIRE-STACK, GATE-PFC-WIRE, GATE-PROD-DESIGN-ART, GATE-CLOUD-ART (`scripts/spec/_wiring-lang-adapters.sh`).
+
+**LAW-STUB NO STUB, NO PROVENANCE LIE** — a function claimed to implement a must-have feature MUST NOT (a) announce it is not real (`panic("not implemented")`, `errors.New("…not configured")`, `NotImplementedError`, `TODO: implement`), nor (b) assert a provenance it never earned (`is_ai_generated=true` / `provider="openai|azure|…"` set while the file makes no outbound/SDK call). The data must not lie about how it was produced. Enforced by GATE-STUB.
+
+**LAW-SUBSTANCE NO EMPTY DELIVERY** — every directory in the atom allowlist MUST contain ≥ 1 non-empty source file; a 0-byte artifact is never "delivered". An empty `internal/ai/` counted in the file tally is FAIL. Enforced by GATE-SUBSTANCE + `verify-manifest.sh` 0-byte check.
+
+**LAW-SEED DATA-DRIVEN ⇒ SEEDED** — a feature that reads from a table MUST prove the table is seeded: `count(*) ≥ declared min_rows`. An empty `vocabulary` table behind a "lesson generator" is FAIL, not a passing empty list. Enforced by GATE-SEED.
+
+**LAW-AUTH-RT REGISTER→LOGIN ROUNDTRIP** — when auth is in scope, a fresh `register → login` with the same credentials MUST succeed in a single run; wrong-password MUST return 401/403; (SHOULD) nonexistent-user SHOULD NOT collapse to a generic 401. A pre-seeded fixture is not sufficient — the roundtrip must be exercised live. Enforced by GATE-AUTH-RT.
+
+**LAW-ASSERT NO TAUTOLOGY** — an E2E journey MUST carry ≥ 1 non-tautological, journey-specific assertion; a test that defines tests but asserts nothing is FAIL (it inflates coverage without proving behaviour). Enforced by GATE-E2E-SEM + GATE-ASSERT. Strengthens LAW-11: green tests ≠ asserting tests.
+
+**LAW-TIER-CLOUD INFRA MANDATORY AT SCALE** — at `scale_tier ∈ {scale, hyperscale}`, IaC (GATE-22), SLO (GATE-26) and scaling-proof (GATE-28) are MANDATORY: an unset `cloud.*` config is FAIL, not N/A. "Declared hyperscale, delivered single host" is the exact slip this closes. The §C threshold matrix gains a scale-tier dimension; the mutation floor rises to 75% on the changed diff at scale+.
+
+**LAW-WITNESS-TIER NO SELF-SEAL AT SCALE** — at `scale_tier ∈ {scale, hyperscale}` OR `env=prod`, a placeholder witness is forbidden and `--no-witness` is refused regardless of env; the manifest MUST carry a real external signature. Strengthens LAW-17, which previously allowed dev/ci placeholders.
+
+**LAW-REVERIFY INDEPENDENT RE-RUN** — a recorded PASS is provisional until an independent runner with no build history re-executes a sample of behavioural gates and reproduces it. A PASS that does not reproduce is a self-attestation breach → atom FAIL. `hyperscale` ⇒ full re-run; lower tiers ⇒ sample. This is the structural cure for "the build passes its own self-checks." Corollary: `--fast` / `automation.fast` depth-skip is FORBIDDEN at scale+ (orchestrator HALTs) — the deeper red-team / review stages may not be silently skipped on a serious build. Enforced by GATE-REVERIFY (`scripts/orchestrator/reverify-sample.sh`, runs post-manifest).
+
 ---
 
 ## Section B — Hard Gates
@@ -225,7 +249,26 @@ When body is empty, gate MUST emit `verdict: "N/A_PENDING_REVIEWER"` (passed: nu
 - **GATE-COMP-COV COMPENSATING-COVERAGE SAFETY NET (v8.7.1)** — Catch-all for project_types with no specialized behavioral gate. **MANDATORY** when `project_type ∉ {frontend, mixed, backend, mobile-*, desktop-browser-*}` (e.g. `library` / `cli` / `sdk` / `daemon` / `worker` / `firmware` / `kernel` / `game` / `ml-model` / `data-pipeline` / `extension` / `plugin` / `dsl`), OR when atom opts in via `compensating_coverage.enabled = true`. The agent CANNOT silently emit PASS on a shape with no behavioral path — without this gate, a `library` atom with one stub test passes the whole pipeline. Runner script (`scripts/mechanical/compensating-coverage.sh`) MUST: (1) verify `compensating_coverage.reason` non-empty (agent must justify why no E2E path applies — pure declaration of the WHY is the LAW-F6 hook), (2) verify `compensating_coverage.coverage_cmd` non-empty + `coverage_report_path` non-empty + `coverage_report_format ∈ {istanbul, simple, text}`, (3) execute the cmd from project root — non-zero exit → FAIL, (4) read the resulting report, (5) FAIL if `line < 90` OR `branch < 85` (RAISED floors above backend default 80/70 — atom can raise, gate clamps lower requests up to the floors), (6) FAIL if BOTH `line=0` AND `branch=0` (vacuous — cmd ran but no test execution recorded). Detail: §AA.
 - **GATE-IMPL BMAD-METHOD STAGE-4 COVERAGE (v8.4)** — Stage 4 BUILD enforcement. Partitions the atom allowlist into `{backend, frontend, tests}` concerns via `scripts/implementer/concern-split.sh` (concern-split.json). Dispatches up to three personas (Dev-Backend, Dev-Frontend, Dev-Tests) in parallel via Claude Code Task tool from prompt files under `sub-skills/implementer/references/personas/`. FAIL if (a) any dispatched persona left no `*-status.json`; (b) any persona's `files_changed[]` is not a subset of its allowlist subset; (c) persona allowlist subsets overlap (file in two personas → merge conflict); (d) `tests-status.core_flows_covered[]` is missing any entry from `intent/verdict.json.core_flows[]`. When atom does not reach Stage 4 → `N/A_PENDING_REVIEWER`, not ERROR. Single-file atoms or `--fast` collapse to single-persona; the gate still enforces files-changed ⊆ allowlist. Script: `implementer/implementer-coverage-gate.sh`. Detail: §V.
 
-> **N/A rule:** if a gate's required config is absent in `.build-anything.json`, the script writes `verdict: "N/A_PENDING_REVIEWER"` and exits 0. Reviewer MUST justify the N/A or HALT. See **§F**.
+> **N/A rule:** if a gate's required config is absent in `.build-anything.json`, the script writes `verdict: "N/A_PENDING_REVIEWER"` and exits 0. Reviewer MUST justify the N/A or HALT. See **§F**. (Exception — LAW-TIER-CLOUD: at scale+ tier, GATE-22/26/28 turn an absent config into FAIL, not N/A.)
+
+---
+
+### B.5 Wiring-verification & self-attestation gates (v8.8)
+
+Behaviour-based gates that verify the WIRE, not the WISH. Each: `bash <script> --atom-dir <dir> --project-root <dir>` → JSON verdict on disk (`{gate, verdict, passed, confidence, ambiguities[]}`), exit 0 PASS/N/A, 1 FAIL. The 8 new per-atom gates are wired into `run-all-gates.sh`; GATE-REVERIFY runs post-manifest; GATE-22/26/28 are tier-aware modifications. Every one has an inversion meta-gate under `scripts/meta/` (full suite: `pass=23 fail=0`).
+
+- **GATE-WIRE-STACK (LAW-WIRE)** — for each tier-required capability, the declared value MUST appear as a dependency OR a source symbol OR a config artifact in the built repo (≥ `min_impls` distinct footprints for multi-provider capabilities). Declaration-only = FAIL. No dependency manifest + no source ⇒ N/A (Stage 4 not reached). Script: `spec/capability-wiring-check.sh`. Closes audit §6 / §16.1.
+- **GATE-PFC-WIRE (LAW-WIRE)** — for each user-confirmed must-have feature (`intent.feature_surface[] must=true`), the declared `feature_wiring{routes,handlers,test_refs}` MUST resolve in source: route literal present, handler symbol defined, ≥ 1 test references it. Naming the feature in `spec.md` (GATE-PFC) is necessary but no longer sufficient. Script: `spec/feature-wiring-check.sh`. Closes audit §8 / §16.2.
+- **GATE-PROD-DESIGN-ART (LAW-WIRE)** — each infra-claiming section of `production-design.md` MUST cite an artifact path that exists + is non-empty (SLO → monitoring rule; Deployment topology → deploy manifest). Prose without a backing file = FAIL. Script: `spec/prod-design-artifact-check.sh`. Closes audit §7 / §16.5.
+- **GATE-STUB (LAW-STUB)** — scans claimed must-have feature files for not-implemented markers + provenance lies (truth-claim set with no outbound call in the file). Script: `mechanical/stub-detection.sh`. Closes audit §8 / §15.3.
+- **GATE-SUBSTANCE (LAW-SUBSTANCE)** — every allowlist directory must hold ≥ 1 non-empty source file; flags 0-byte source stubs. Script: `mechanical/allowlist-substance-check.sh`. Closes audit §10.
+- **GATE-SEED (LAW-SEED)** — runs each declared `backend.seed_check[].count_cmd`; FAIL if any row count < `min_rows`. DB-agnostic via the count-cmd shim (prod: `psql -tAc 'select count(*) …'`). Script: `backend/data-seed-check.sh`. Closes audit §5 / §8.
+- **GATE-AUTH-RT (LAW-AUTH-RT)** — live register→login roundtrip with fresh random creds + wrong-password 401/403 + taxonomy note for nonexistent user. Unreachable stack ⇒ N/A. Script: `backend/auth-roundtrip-test.sh`. Closes audit §11.2 / §11.3 / §16.3.
+- **GATE-E2E-SEM (LAW-ASSERT)** — static: each declared journey must carry ≥ 1 semantic assertion present in its matched test file AND a real assertion keyword (kills filename-only matching + tautologies). Script: `mechanical/e2e-semantic-floor-check.sh`. Closes audit §11.1 / §16.4.
+- **GATE-ASSERT (LAW-ASSERT)** — static: any test file that defines tests but contains zero assertion keywords = FAIL (zero-assertion coverage gaming). Script: `mechanical/test-assertion-presence-check.sh`. Closes audit §16.4.
+- **GATE-CLOUD-ART (LAW-TIER-CLOUD)** — each declared `cloud.required_artifacts[]` (k8s / HPA / Prometheus rule …) must match a non-empty file; "k8s configs ready" with an empty `k8s/` = FAIL. Script: `cloud/artifact-existence-check.sh`. Closes audit §6 / §12 / §16.5.
+- **GATE-REVERIFY (LAW-REVERIFY)** — runs AFTER manifest aggregation: re-executes a sample of behavioural gates; a manifest-recorded PASS that does not reproduce ⇒ `self_attestation_breach` ⇒ atom FAIL. `hyperscale` ⇒ full re-run. Script: `orchestrator/reverify-sample.sh`. Closes audit §1 / §16.7.
+- **GATE-22 / 26 / 28 tier-aware (LAW-TIER-CLOUD)** — at `scale_tier ∈ {scale, hyperscale}`, an unset IaC / SLO / scaling config flips N/A → FAIL.
 
 ---
 
@@ -260,6 +303,8 @@ Per-project-type. Detect from `.build-anything.json` `project_type` (`frontend` 
 | GATE-28 scaling | n/a | required if horizontally scaled | n/a | required | k6 ramp |
 
 **Overrides:** atom may declare `gate_overrides` in `.build-anything.json` (e.g. `GATE-14.lighthouse_perf: 85`) with inline justification. Override is logged and counted against tech-debt budget.
+
+**Scale-tier dimension (v8.8 — LAW-TIER-CLOUD).** The matrix above is keyed by `project_type`. A second dimension applies by `intent.declared.scale_tier`. At `scale` or `hyperscale`: GATE-22 (IaC), GATE-26 (SLO) and GATE-28 (scaling) flip from conditional/N/A to **MANDATORY** — an unset `cloud.*` config is FAIL, not N/A; GATE-11 mutation floor rises to **75%** on the changed diff; GATE-CLOUD-ART additionally requires every declared infra artifact (k8s / HPA / Prometheus rule …) to exist as a non-empty file; the witness becomes mandatory (LAW-WITNESS-TIER) and `--fast` depth-skip is refused (LAW-REVERIFY corollary). `serverless` stacks satisfy the artifact requirement via `cloud.artifact_kind=serverless` (platform config in place of k8s).
 
 ---
 
