@@ -790,6 +790,59 @@
         "min_impls": 2
       },
       "rationale": "Audit §16.1: multi-provider AI with fallback was DECLARED but internal/ai was empty + zero SDKs. Requires >=2 distinct provider footprints (dependency or symbol), not a single-provider claim dressed as multi."
+    },
+    "realtime_media": {
+      "satisfies_keys": [
+        "backend.realtime_media.kind",
+        "call.transport",
+        "stack.webrtc",
+        "stack.calling"
+      ],
+      "accept_values": [
+        "webrtc",
+        "livekit",
+        "mediasoup",
+        "janus",
+        "simple-peer",
+        "peerjs",
+        "agora",
+        "twilio-video",
+        "daily",
+        "100ms"
+      ],
+      "disqualified_values": [
+        "",
+        "none",
+        "http-polling",
+        "ws-audio-base64"
+      ],
+      "wiring": {
+        "dep_packages": [
+          "simple-peer",
+          "livekit-client",
+          "livekit-server-sdk",
+          "mediasoup",
+          "mediasoup-client",
+          "peerjs",
+          "agora-rtc-sdk-ng",
+          "twilio-video",
+          "@daily-co/daily-js",
+          "@100mslive/react-sdk",
+          "wrtc",
+          "pion"
+        ],
+        "code_symbols": [
+          "RTCPeerConnection",
+          "getUserMedia",
+          "createOffer",
+          "createAnswer",
+          "addIceCandidate",
+          "ontrack",
+          "getDisplayMedia"
+        ],
+        "min_impls": 1
+      },
+      "rationale": "slack+notion audit 2026-06-03: a 'call' button shipped non-functional. WebRTC = signaling + ICE + media negotiation; a present button proves nothing. Calls declared OR UI-detected OR chat/collab@scale+ ⇒ realtime_media wired + GATE-CALL runtime proof (RTCPeerConnection.connectionState=connected)."
     }
   },
   "_scale_tiers_meta": {
@@ -1904,6 +1957,7 @@
       },
       {
         "name": "real-time messaging",
+        "behavioral": "rt_propagate",
         "synonyms": [
           "websocket",
           "socket.io",
@@ -1930,6 +1984,7 @@
       },
       {
         "name": "presence",
+        "behavioral": "presence_observe",
         "synonyms": [
           "online status",
           "presence",
@@ -1945,9 +2000,10 @@
       ],
       "recommended_capabilities": [
         "notification_pipeline",
-        "fanout_queue"
+        "fanout_queue",
+        "realtime_media"
       ],
-      "rationale": "Polling does not deliver presence or typing semantics within UX budget; concurrent message writers exceed SQLite's single-writer lock at any group scale."
+      "rationale": "Polling does not deliver presence or typing semantics within UX budget; concurrent message writers exceed SQLite's single-writer lock at any group scale. Huddles/calls (realtime_media) recommended; at scale+ a call surface makes GATE-CALL mandatory."
     },
     "scale_tiers": {
       "mvp": {
@@ -2023,6 +2079,134 @@
           "max_usd_month": 9999999
         },
         "rationale": "Sharded message DB, per-region presence cluster, multi-region websocket gateway."
+      }
+    }
+  },
+  "collab-docs": {
+    "keywords": [
+      "notion clone",
+      "google docs clone",
+      "collaborative editor",
+      "collaborative document",
+      "workspace docs",
+      "confluence clone",
+      "coda clone"
+    ],
+    "must_have": [
+      {
+        "name": "user accounts",
+        "synonyms": ["register", "login", "auth"]
+      },
+      {
+        "name": "live collaborative editing",
+        "behavioral": "rt_propagate",
+        "synonyms": ["collaborative editing", "real-time editing", "co-editing", "live cursor", "multiplayer edit", "crdt", "yjs", "operational transform"]
+      },
+      {
+        "name": "nested pages / blocks",
+        "synonyms": ["nested pages", "blocks", "block editor", "page tree", "sub-pages", "documents"]
+      },
+      {
+        "name": "comments",
+        "synonyms": ["comment", "inline comment", "discussion", "annotate"]
+      },
+      {
+        "name": "full-text search",
+        "synonyms": ["search", "full text search", "find page", "search docs"]
+      },
+      {
+        "name": "version / edit history",
+        "synonyms": ["version history", "edit history", "page history", "revisions", "restore version"]
+      },
+      {
+        "name": "mentions / notifications",
+        "synonyms": ["mention", "@-mention", "notify", "@user", "tag user"]
+      }
+    ],
+    "stack_fitness": {
+      "required_capabilities": [
+        "realtime_transport",
+        "relational_db_concurrent_writer",
+        "search_index"
+      ],
+      "recommended_capabilities": [
+        "cache_layer",
+        "notification_pipeline"
+      ],
+      "rationale": "Live co-editing needs realtime transport (CRDT/OT sync) — HTTP save loses concurrent edits; cross-page search cannot be LIKE-scanned; concurrent block writers exceed single-writer SQLite. v8.7.1 colleague miss (SKILL.md:76): notion clone shipped without comments/realtime/search/history/mentions because feature enumeration was delegated to research, never floored."
+    },
+    "scale_tiers": {
+      "mvp": {
+        "required_capabilities": [
+          "realtime_transport",
+          "relational_db_concurrent_writer"
+        ],
+        "recommended_capabilities": [
+          "search_index"
+        ],
+        "disqualified_packages": [
+          "better-sqlite3"
+        ],
+        "cost_band": {
+          "min_usd_month": 0,
+          "max_usd_month": 200
+        },
+        "rationale": "Realtime co-edit from day one — docs collab without live sync is undefined. Postgres for page/block store."
+      },
+      "growth": {
+        "required_capabilities": [
+          "realtime_transport",
+          "relational_db_concurrent_writer",
+          "search_index",
+          "cache_layer"
+        ],
+        "recommended_capabilities": [
+          "notification_pipeline"
+        ],
+        "disqualified_packages": [
+          "better-sqlite3"
+        ],
+        "cost_band": {
+          "min_usd_month": 200,
+          "max_usd_month": 2500
+        },
+        "rationale": "Cross-page search index + presence cache required past 1K DAU; mention notifications."
+      },
+      "scale": {
+        "required_capabilities": [
+          "realtime_transport",
+          "relational_db_concurrent_writer",
+          "search_index",
+          "cache_layer",
+          "notification_pipeline"
+        ],
+        "recommended_capabilities": [],
+        "disqualified_packages": [
+          "better-sqlite3"
+        ],
+        "cost_band": {
+          "min_usd_month": 2500,
+          "max_usd_month": 40000
+        },
+        "rationale": "Sharded document store, CRDT sync fabric, dedicated search cluster."
+      },
+      "hyperscale": {
+        "required_capabilities": [
+          "realtime_transport",
+          "relational_db_concurrent_writer",
+          "search_index",
+          "cache_layer",
+          "notification_pipeline"
+        ],
+        "recommended_capabilities": [],
+        "disqualified_packages": [
+          "better-sqlite3"
+        ],
+        "cost_band": {
+          "min_usd_month": 40000,
+          "max_usd_month": 9999999
+        },
+        "rationale": "Global edge CRDT sync, per-region document shards, multi-region collaborative gateway."
       }
     }
   },

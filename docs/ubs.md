@@ -38,7 +38,7 @@ What the repo contains and why each agent needs it:
 1. `git clone https://github.com/bachdx2812/build-anything-claude && cd build-anything-claude`
 2. Inspect `plugins/build-anything/SKILL.md` for the 17-stage flow.
 3. Treat every `scripts/**/*.sh` as the binding interpretation of the corresponding law/gate in this doc. If the doc and the script disagree, the **script wins** (the script is what the meta-suite tests against).
-4. Run `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh` as a sanity check before adopting any gate locally — expect `pass=23 fail=0` (v8.8 added 11 wiring/self-attestation meta-gates: capability-wiring, feature-wiring, prod-design-artifact, stub-detection, allowlist-substance, data-seed, auth-roundtrip, e2e-semantic-floor, test-assertion-presence, cloud-artifact, reverify).
+4. Run `bash plugins/build-anything/scripts/meta/run-all-meta-gates.sh` as a sanity check before adopting any gate locally — expect `pass=26 fail=0` (v8.8 added 11 wiring/self-attestation meta-gates; v8.9 added 3 behavioral meta-gates: realtime-propagation, call-webrtc, behavioral-binding).
 5. Treat the repo as **read + adapt**: the bash gates are stack-agnostic and intended to be invoked directly by any harness (Comet, Devin's shell, Kimi, Claude Code, plain CI). No Claude-specific tooling is required to run them.
 
 The doc you are reading + this repo together = the UBS executable charter. Reading only one of them is not enough.
@@ -49,7 +49,7 @@ The doc you are reading + this repo together = the UBS executable charter. Readi
 
 UBS turns "the AI said it works" into a manifest of mechanically-verifiable evidence.
 
-- **18 core Hard Laws** (LAW-01..17 + LAW-CL-95) + **9 v8.8 wiring/self-attestation laws** (LAW-WIRE, LAW-STUB, LAW-SUBSTANCE, LAW-SEED, LAW-AUTH-RT, LAW-ASSERT, LAW-TIER-CLOUD, LAW-WITNESS-TIER, LAW-REVERIFY) — inviolable. Violation = atom HALT + automation-ladder demotion.
+- **18 core Hard Laws** (LAW-01..17 + LAW-CL-95) + **9 v8.8 wiring/self-attestation laws** (LAW-WIRE, LAW-STUB, LAW-SUBSTANCE, LAW-SEED, LAW-AUTH-RT, LAW-ASSERT, LAW-TIER-CLOUD, LAW-WITNESS-TIER, LAW-REVERIFY) + **3 v8.9 behavioral laws** (LAW-RT-PROPAGATE, LAW-CALL, LAW-BEHAVIORAL-MUSTHAVE) — inviolable. Violation = atom HALT + automation-ladder demotion.
 - **Hard Gates** — GATE-1..28 + GATE-INTENT/PFC/UIUX + the **v8.8 wiring-verification gates** (GATE-WIRE-STACK, GATE-PFC-WIRE, GATE-PROD-DESIGN-ART, GATE-STUB, GATE-SUBSTANCE, GATE-SEED, GATE-AUTH-RT, GATE-E2E-SEM, GATE-ASSERT, GATE-CLOUD-ART, GATE-REVERIFY) — each a script returning `PASS` / `FAIL` / `N/A_PENDING_REVIEWER` / `ERROR` on stdout, plus a JSON verdict on disk carrying `{confidence: 0-100, ambiguities[]}`.
 - **v8.8 cure (declared-vs-wired):** spec gates no longer pass on declaration alone — a capability/feature/design-claim must leave a real footprint in built code, stubs + provenance-lies + empty dirs FAIL, and a recorded PASS must survive an independent re-run (no self-sealed homework). See **§A v8.8 laws** + **§B.5**.
 - **6 adversarial reviewers** (Opus-class) under the framing "your job is to FAIL this atom if you can." Consensus rule: ANY FAIL = atom FAIL.
@@ -179,6 +179,14 @@ These close the 2026-06 audit finding: v8.7.2 gates verified the *declaration* (
 
 **LAW-REVERIFY INDEPENDENT RE-RUN** — a recorded PASS is provisional until an independent runner with no build history re-executes a sample of behavioural gates and reproduces it. A PASS that does not reproduce is a self-attestation breach → atom FAIL. `hyperscale` ⇒ full re-run; lower tiers ⇒ sample. This is the structural cure for "the build passes its own self-checks." Corollary: `--fast` / `automation.fast` depth-skip is FORBIDDEN at scale+ (orchestrator HALTs) — the deeper red-team / review stages may not be silently skipped on a serious build. Enforced by GATE-REVERIFY (`scripts/orchestrator/reverify-sample.sh`, runs post-manifest).
 
+**v8.9 behavioral-wiring laws.** These close the slack+notion colleague finding (2026-06): v8.8 proved the WIRE statically (a dependency / handler / test-file is present) but never proved BEHAVIOR at runtime — a chat that is not realtime, and a call button that never connects, both passed every gate.
+
+**LAW-RT-PROPAGATE REALTIME ⇒ MULTI-CLIENT PROOF** — a realtime-class product (chat / messaging / collab-docs) MUST prove state propagates between two independent clients: a skill-authored probe opens two browser contexts, client A emits a unique marker, and client B MUST observe it within budget (default 3000ms) WITHOUT a reload. A realtime-class build with `realtime.enabled != true` is FAIL (declared-but-skipped); enabled with zero journeys is FAIL (no vacuous pass); login/users/selectors undeclared ⇒ N/A_PENDING_REVIEWER (undrivable — reviewer verifies). A single-client optimistic-UI echo is NOT proof. Enforced by GATE-RT-PROPAGATE (`scripts/mechanical/e2e-multiclient.sh`).
+
+**LAW-CALL CALL ⇒ CONNECTS** — where a call surface exists, a working call MUST be proven, not merely present. GATE-CALL is mandatory when ANY holds: (a) a call feature is declared in `feature_surface`; (b) archetype `chat-app` at `scale_tier ∈ {scale, hyperscale}`; (c) the built UI exposes a call surface (≥2 corroborating signals: route + symbol/label, word-boundary anchored). A skill-authored fake-media probe opens two clients, A starts → B answers, and BOTH `RTCPeerConnection.connectionState` MUST reach `connected` within budget with ≥1 live remote track. A present-but-dead call button = FAIL. The app MUST expose its active `RTCPeerConnection` at `call.peer_accessor` (default `window.__rtcPeer`) under the E2E flag; absent ⇒ N/A_PENDING_REVIEWER (never silent PASS). `realtime_media` becomes a required capability whenever GATE-CALL is mandatory. Escape hatch: `call.ui_autodetect:false` REQUIRES a `call.ui_autodetect_reason` (LAW-F6). Enforced by GATE-CALL (`scripts/mechanical/e2e-call.sh`), GATE-WIRE-STACK, and `scripts/spec/call-surface-detect.sh`.
+
+**LAW-BEHAVIORAL-MUSTHAVE INTERACTIVE ⇒ BEHAVIORAL PASS** — a must-have feature catalog-tagged `behavioral:<gate>` (realtime messaging, presence, live collaborative editing, calls) MUST have its mapped behavioral gate verdict = PASS. Static route + handler + test-file existence (GATE-PFC-WIRE) is necessary but NOT sufficient for these. Behavioral FAIL ⇒ FAIL; behavioral N/A or not-run ⇒ N/A (never upgraded to PASS). Enforced by GATE-BEHAVIORAL-MUSTHAVE (`scripts/spec/behavioral-binding-check.sh`).
+
 ---
 
 ## Section B — Hard Gates
@@ -255,7 +263,7 @@ These close the 2026-06 audit finding: v8.7.2 gates verified the *declaration* (
 
 ### B.5 Wiring-verification & self-attestation gates (v8.8)
 
-Behaviour-based gates that verify the WIRE, not the WISH. Each: `bash <script> --atom-dir <dir> --project-root <dir>` → JSON verdict on disk (`{gate, verdict, passed, confidence, ambiguities[]}`), exit 0 PASS/N/A, 1 FAIL. The 8 new per-atom gates are wired into `run-all-gates.sh`; GATE-REVERIFY runs post-manifest; GATE-22/26/28 are tier-aware modifications. Every one has an inversion meta-gate under `scripts/meta/` (full suite: `pass=23 fail=0`).
+Behaviour-based gates that verify the WIRE, not the WISH. Each: `bash <script> --atom-dir <dir> --project-root <dir>` → JSON verdict on disk (`{gate, verdict, passed, confidence, ambiguities[]}`), exit 0 PASS/N/A, 1 FAIL. The 8 new per-atom gates are wired into `run-all-gates.sh`; GATE-REVERIFY runs post-manifest; GATE-22/26/28 are tier-aware modifications. Every one has an inversion meta-gate under `scripts/meta/` (full suite: `pass=26 fail=0`).
 
 - **GATE-WIRE-STACK (LAW-WIRE)** — for each tier-required capability, the declared value MUST appear as a dependency OR a source symbol OR a config artifact in the built repo (≥ `min_impls` distinct footprints for multi-provider capabilities). Declaration-only = FAIL. No dependency manifest + no source ⇒ N/A (Stage 4 not reached). Script: `spec/capability-wiring-check.sh`. Closes audit §6 / §16.1.
 - **GATE-PFC-WIRE (LAW-WIRE)** — for each user-confirmed must-have feature (`intent.feature_surface[] must=true`), the declared `feature_wiring{routes,handlers,test_refs}` MUST resolve in source: route literal present, handler symbol defined, ≥ 1 test references it. Naming the feature in `spec.md` (GATE-PFC) is necessary but no longer sufficient. Script: `spec/feature-wiring-check.sh`. Closes audit §8 / §16.2.
@@ -269,6 +277,16 @@ Behaviour-based gates that verify the WIRE, not the WISH. Each: `bash <script> -
 - **GATE-CLOUD-ART (LAW-TIER-CLOUD)** — each declared `cloud.required_artifacts[]` (k8s / HPA / Prometheus rule …) must match a non-empty file; "k8s configs ready" with an empty `k8s/` = FAIL. Script: `cloud/artifact-existence-check.sh`. Closes audit §6 / §12 / §16.5.
 - **GATE-REVERIFY (LAW-REVERIFY)** — runs AFTER manifest aggregation: re-executes a sample of behavioural gates; a manifest-recorded PASS that does not reproduce ⇒ `self_attestation_breach` ⇒ atom FAIL. `hyperscale` ⇒ full re-run. Script: `orchestrator/reverify-sample.sh`. Closes audit §1 / §16.7.
 - **GATE-22 / 26 / 28 tier-aware (LAW-TIER-CLOUD)** — at `scale_tier ∈ {scale, hyperscale}`, an unset IaC / SLO / scaling config flips N/A → FAIL.
+
+### B.6 Behavioral-wiring gates (v8.9 — multi-client runtime proof)
+
+Prove BEHAVIOR at runtime, not just the static WIRE. Probes are **skill-authored** (`templates/probes/*.spec.ts`) — the build cannot tautology-pass a test it never wrote. Same contract: `bash <script> --atom-dir <dir> --project-root <dir>` → JSON verdict, exit 0 PASS/N/A, 1 FAIL. Wired into `run-all-gates.sh` (`mech-rt-propagate`, `mech-call`, `spec-behavioral-binding`); each has an inversion meta-gate.
+
+- **GATE-RT-PROPAGATE (LAW-RT-PROPAGATE)** — two browser contexts; A sends a unique marker, B must observe it live (no reload) within budget. Realtime-class product not enabled ⇒ FAIL; enabled + 0 journeys ⇒ FAIL; undrivable ⇒ N/A. Optional negative-isolation check (a client in another channel must NOT receive). Script: `mechanical/e2e-multiclient.sh`. Closes the slack "chat not realtime" finding.
+- **GATE-CALL (LAW-CALL)** — fake-media two-client WebRTC probe; both peers must reach `connectionState=connected` + a live remote track. Mandatory via 3-way trigger (declared call | `chat-app`@scale+ | UI call-surface detected, ≥2 signals). No `peer_accessor` reachable / no fake-media env ⇒ N/A. Scripts: `mechanical/e2e-call.sh` + `spec/call-surface-detect.sh` (trigger c). Closes the slack "call doesn't run" finding.
+- **GATE-BEHAVIORAL-MUSTHAVE (LAW-BEHAVIORAL-MUSTHAVE)** — each `behavioral:<gate>`-tagged must-have feature must have its mapped behavioral verdict = PASS; static wiring alone is insufficient. Script: `spec/behavioral-binding-check.sh`. Closes the slack "UI works but feature dead" finding.
+
+> New archetype **`collab-docs`** (notion / google-docs / confluence clone) floors the must-have set — live collaborative editing `[behavioral:rt_propagate]`, comments, full-text search, version history, mentions, nested blocks — closing the v8.7.1 notion under-scoping finding. New capability **`realtime_media`** (webrtc / livekit / mediasoup / simple-peer / livekit / 100ms / daily / agora / twilio-video) models calling; required whenever GATE-CALL is mandatory.
 
 ---
 

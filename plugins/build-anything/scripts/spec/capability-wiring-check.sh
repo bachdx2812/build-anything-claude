@@ -156,6 +156,41 @@ else
   REQUIRED=$(jq -r --arg t "$CATALOG_KEY" --arg tier "$TIER_RESOLVED" '.[$t].scale_tiers[$tier].required_capabilities[]?' "$CATALOG" 2>/dev/null)
 fi
 
+# ── v8.9 GATE-CALL trigger → realtime_media becomes a REQUIRED capability ──────
+# Any of three independent triggers means a working call MUST be wired (a present
+# but dead call button is the slack+notion audit failure):
+#   (a) a call feature is DECLARED in feature_surface,
+#   (b) chat-app archetype at scale/hyperscale (boss pick — big chat ⇒ calls),
+#   (c) the BUILT UI exposes a call surface (call-surface-detect, ≥2 signal kinds).
+# collab-docs is deliberately NOT in (b): notion-class docs have no calls; only a
+# declared (a) or detected (c) call surface forces realtime_media there.
+CALL_TRIGGER=""
+FEATURES=""
+[[ -f "$ATOM_DIR/intent/verdict.json" ]] && \
+  FEATURES=$(jq -r '(.declared.feature_surface // [])[]? | if type=="object" then (.name // empty) else . end' \
+    "$ATOM_DIR/intent/verdict.json" 2>/dev/null || true)
+FEATURES="$FEATURES
+$(jq -r '(.feature_surface // [])[]? | if type=="object" then (.name // empty) else . end' "$CONFIG" 2>/dev/null || true)"
+if printf '%s' "$FEATURES" | grep -qiE 'huddle|voice[ /-]?call|video[ /-]?call|audio[ /-]?call|\bcalling\b|\bcalls\b|conferenc|video meeting|video chat|voice chat'; then
+  CALL_TRIGGER="declared-call-feature"
+fi
+if [[ -z "$CALL_TRIGGER" && "$CATALOG_KEY" == "chat-app" ]]; then
+  case "$SCALE_TIER" in scale|hyperscale) CALL_TRIGGER="chat-app@$SCALE_TIER" ;; esac
+fi
+if [[ -z "$CALL_TRIGGER" ]]; then
+  bash "$SCRIPT_DIR/call-surface-detect.sh" --project-root "$PROJECT_ROOT" --atom-dir "$ATOM_DIR" >/dev/null 2>&1 || true
+  if [[ -f "$ATOM_DIR/gate-spec/call-surface.json" ]]; then
+    det=$(jq -r '.detected' "$ATOM_DIR/gate-spec/call-surface.json" 2>/dev/null || echo false)
+    [[ "$det" == "true" ]] && CALL_TRIGGER="ui-detected-call-surface"
+  fi
+fi
+if [[ -n "$CALL_TRIGGER" ]]; then
+  if ! printf '%s\n' "$REQUIRED" | grep -qx "realtime_media"; then
+    REQUIRED=$(printf '%s\nrealtime_media' "$REQUIRED")
+  fi
+  log "GATE-CALL trigger=$CALL_TRIGGER → realtime_media required"
+fi
+
 log "product=$PRODUCT_TYPE key=$CATALOG_KEY tier=$TIER_RESOLVED"
 
 # ── LAW-F6 footprint-surface guard ────────────────────────────────────
