@@ -91,6 +91,24 @@ is_realtime_class=0
 case "$PRODUCT_LC" in
   *chat*|*messag*|*collab*|*notion*|*slack*|*discord*|*realtime*|*real-time*) is_realtime_class=1 ;;
 esac
+
+# v9.0 LAW-RT-DERIVE — eligibility derives from declared FEATURES, not just the
+# product NAME. "facebook" / "social-network" never matched the name regex above,
+# so its Messenger / live-notification feature silently escaped the multi-client
+# proof (the FB-clone field report). Scan feature_surface[].name + core_flows[]
+# for realtime-class capability keywords.
+RT_FEATURE_HIT=""
+if [[ -f "$ATOM_DIR/intent/verdict.json" ]]; then
+  RT_FEATURE_HIT=$(jq -r '
+    [ (.declared.feature_surface // [] | .[]? | if type=="object" then (.name // "") else tostring end),
+      (.declared.core_flows // [] | .[]? | tostring) ]
+    | map(ascii_downcase)
+    | map(select(test("chat|messag|direct.?message|realtime|real-time|presence|typing.indicator|live.(feed|update|comment|notif)|websocket|socket\\.io|collaborat|co-?edit")))
+    | .[0] // empty
+  ' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || true)
+fi
+[[ -n "$RT_FEATURE_HIT" ]] && is_realtime_class=1
+
 # Explicit realtime.enabled also marks the build as realtime-class.
 RT_ENABLED=$(cfg "realtime.enabled" "false")
 [[ "$RT_ENABLED" == "true" ]] && is_realtime_class=1
@@ -98,6 +116,9 @@ RT_ENABLED=$(cfg "realtime.enabled" "false")
 # ── LAW-RT-PROPAGATE: realtime product must not skip the gate ──────────────
 if [[ "$RT_ENABLED" != "true" ]]; then
   if [[ "$is_realtime_class" -eq 1 ]]; then
+    if [[ -n "$RT_FEATURE_HIT" ]]; then
+      emit_fail "realtime-class FEATURE declared (feature_surface/core_flows matches '$RT_FEATURE_HIT') but realtime.enabled != true — LAW-RT-DERIVE: a messaging/live feature may not skip the multi-client proof regardless of product name; declare realtime.{enabled,login,users,journeys}"
+    fi
     emit_fail "realtime-class product (product_type=$PRODUCT) but realtime.enabled != true — LAW-RT-PROPAGATE forbids skipping multi-client proof"
   fi
   emit_na "no realtime surface (product_type=$PRODUCT, realtime.enabled unset)"

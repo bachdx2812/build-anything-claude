@@ -64,6 +64,10 @@ When Stage 4 is reached, Claude (the orchestrator) MUST:
                 Wait for backend+frontend RED commits before writing the GREEN test commit."
    ```
 
+   **Tech-pack routing (v9.0, LAW-RT-DERIVE).** Before building, the dispatcher MUST append the relevant `references/tech-packs/<tech>.md` to a persona's prompt when the atom declares that technology, so the persona does not code it from memory:
+   - `architecture.md#Stack` declares WebSocket / socket.io / SSE / WebRTC, OR `intent/verdict.json` `feature_surface[]`/`core_flows[]` match chat/messaging/presence/typing/live-feed/notifications/collaborative-editing ⇒ append `references/tech-packs/websocket-realtime.md` to BOTH the Dev-Backend and Dev-Frontend prompts. This is the same realtime surface GATE-RT-PROPAGATE will prove at runtime; an un-briefed implementer is the documented FB-clone bug source.
+   - (Future packs drop into `references/tech-packs/` and route by the same stack/feature match — keep the mapping obvious from the filename.)
+
 5. After all dispatched Tasks return, run `scripts/implementer/implementer-coverage-gate.sh --atom-dir {atom_dir} --project-root {project_root}`. This gate verifies:
    - Every dispatched persona wrote its `*-status.json` report.
    - Every concern in `concerns.*.dispatch == true` has actual `files_changed` in its report.

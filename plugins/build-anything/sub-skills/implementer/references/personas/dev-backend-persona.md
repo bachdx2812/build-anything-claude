@@ -8,6 +8,7 @@ You receive:
 - `{atom_dir}/schema/` — OpenAPI spec, SQL DDL, invariants.sql (if present)
 - `{atom_dir}/intent/verdict.json` — `declared.product_type`, `out_of_scope[]`
 - Your **allowlist subset**: backend paths only (e.g. `backend/**`, `api/**`, `server/**`, `*.go`, `app.py`, `db/migrations/**`). The dispatcher hands you the exact glob list — do not edit outside it.
+- **Tech-packs (conditional):** when `architecture.md#Stack` declares a technology with a pack under `references/tech-packs/`, you MUST consult it before implementing that slice. Realtime/WebSocket/SSE/WebRTC, or a chat/messaging/presence/live-notification feature ⇒ read `references/tech-packs/websocket-realtime.md` (auth-on-upgrade, reconnect, heartbeat, room scoping, idempotent + persisted delivery). The multi-client gate (GATE-RT-PROPAGATE) will prove cross-client delivery at runtime — coding realtime from memory is the documented FB-clone bug source.
 
 Your output: code changes within the backend allowlist subset, committed in TDD order:
 1. `test: {atom-code} backend red` — failing backend tests for each acceptance criterion you own

@@ -76,6 +76,24 @@ run_case "4_todo_na" "$CD" "N/A_PENDING_REVIEWER" "0"
 CD=$(setup "5_missing_selector" "chat-app" '{"product_type":"chat-app","realtime":{"enabled":true,"login":{"email_selector":"#e","password_selector":"#p","submit_selector":"#go"},"users":{"a":{"email":"a@x.io","password":"pw"},"b":{"email":"b@x.io","password":"pw"}},"journeys":[{"name":"send","send_selector":"#msg"}]}}')
 run_case "5_missing_selector" "$CD" "N/A_PENDING_REVIEWER" "0"
 
+# 6 (v9.0 LAW-RT-DERIVE): product NAME "social-network" matches NO name regex, but a
+# messaging FEATURE is declared → eligibility derives from the feature, gate must FIRE
+# → FAIL (realtime.enabled unset). This is the FB-clone hole: name escaped, feature did not.
+CD6="$OUT_BASE/6_feature_derived"; mkdir -p "$CD6/atom/intent"
+cat > "$CD6/atom/intent/verdict.json" <<'EOF'
+{ "declared": { "product_type": "social-network", "feature_surface": [ { "name": "news feed", "must": true }, { "name": "direct messaging", "must": true } ], "core_flows": ["post status","message a friend"] }, "next_action": "READY", "confidence": 100 }
+EOF
+printf '%s' '{"product_type":"social-network"}' > "$CD6/.build-anything.json"
+run_case "6_feature_derived_fires" "$CD6" "FAIL" "1"
+
+# 7 (control): same product name, NO realtime feature → must stay N/A (no false-positive firing).
+CD7="$OUT_BASE/7_no_rt_feature"; mkdir -p "$CD7/atom/intent"
+cat > "$CD7/atom/intent/verdict.json" <<'EOF'
+{ "declared": { "product_type": "social-network", "feature_surface": [ { "name": "news feed", "must": true }, { "name": "photo albums", "must": true } ], "core_flows": ["post status","upload photo"] }, "next_action": "READY", "confidence": 100 }
+EOF
+printf '%s' '{"product_type":"social-network"}' > "$CD7/.build-anything.json"
+run_case "7_no_rt_feature_stays_na" "$CD7" "N/A_PENDING_REVIEWER" "0"
+
 if [[ ${#FAILED[@]} -gt 0 ]]; then
   log "FAILED: ${FAILED[*]}"; log "summary: pass=${#PASSED[@]} fail=${#FAILED[@]} verdict=FAIL"; exit 1
 fi
