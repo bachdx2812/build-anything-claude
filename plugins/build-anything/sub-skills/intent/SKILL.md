@@ -75,7 +75,7 @@ Start from 100 and subtract:
 | `feature_surface` empty *(v8.7.2)* | -30 |
 | `feature_surface` < 3 items *(v8.7.2)* | -25 |
 | `feature_surface` < 5 items AND prompt mentions `clone` / `like X` / `alternative to` (referenced-product detector) *(v8.7.2)* | -25 |
-| `feature_surface` populated but `history[]` has no `user-confirm-feature-surface` entry *(v8.7.2)* | -20 |
+| `feature_surface` populated but `history[]` has no `user-confirm-feature-surface` **or** `agent-default-archetype` entry *(v8.7.2; v9.0 archetype)* | -20 |
 
 Floor at 0. Result is what gets written to `confidence` field. **Do not inflate: a higher score does not get you to Stage 1 faster — it gets you a worse build.**
 
@@ -94,7 +94,16 @@ After the first extraction pass, the agent MUST run a feature interview before d
 5. **Append `{ "iter": N, "source": "user-confirm-feature-surface", "added": [...], "removed": [...] }`** to `history[]`.
 6. **Re-loop if the user added items** (max 3 rounds — enumeration must converge). On round 3 with still-open additions → HALT with `na_pending_reason: "feature enumeration did not converge in 3 rounds"`.
 
-The interview is NOT optional. The vacuous-PASS guard refuses to mark intent READY without at least one `user-confirm-feature-surface` entry in `history[]`, regardless of confidence score.
+The interview is NOT optional **unless** the build qualifies for archetype default-and-proceed (below). The vacuous-PASS guard refuses to mark intent READY without at least one `user-confirm-feature-surface` **OR** `agent-default-archetype` entry in `history[]`, regardless of confidence score.
+
+### Archetype default-and-proceed (v9.0, LAW-INTENT-DEFAULT)
+
+Why: a bare `build facebook` should not cost a 7-probe + 10–20-item interview ("took all day" — FB-clone field report). And our operating rule is **never stop mid-flow to confirm**. Reconciliation: for a *known* product, the canonical spec is not actually ambiguous — pre-fill it from a curated catalog and proceed, recording the assumption as overridable provenance instead of stopping to ask.
+
+- When the raw prompt matches an archetype in `scripts/intent/archetype-defaults.json` AND the stage is NOT run with `--interactive`, `declare-intent.sh` pre-fills the entire `declared.*` block from the catalog at bootstrap and writes a single `{ "iter": 0, "source": "agent-default-archetype", "archetype": "<key>" }` history entry.
+- That entry satisfies the feature-surface confirmation guard **without** an `AskUserQuestion` round → READY in one pass, zero questions.
+- This is **not** a vacuous PASS: the defaults are an explicit, recorded, user-overridable known-product spec. The agent SHOULD surface the assumed spec to the user as a *non-blocking* FYI ("assumed a standard social-network spec — say so to change it"); the user edits `declared.*` or re-runs `--interactive` to get the full tri-select interview.
+- Keep the catalog small + high-confidence. An unmatched prompt falls through to the full probe + interview above, unchanged.
 
 ## How the agent invokes this stage
 

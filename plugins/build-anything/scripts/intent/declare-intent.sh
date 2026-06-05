@@ -39,6 +39,7 @@ ATOM_DIR=""
 PROJECT_ROOT=""
 MAX_ITER=5
 THRESHOLD=95
+INTERACTIVE=0   # v9.0 — when set, disables archetype default-and-proceed (forces full interview)
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -47,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     --project-root) PROJECT_ROOT="$2"; shift 2 ;;
     --max-iter)     MAX_ITER="$2"; shift 2 ;;
     --threshold)    THRESHOLD="$2"; shift 2 ;;
+    --interactive)  INTERACTIVE=1; shift ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -64,7 +66,44 @@ TRANSCRIPT="$INTENT_DIR/transcript.md"
 if [[ ! -f "$STATE" ]]; then
   : "${PROMPT_FILE:?--prompt required on first run}"
   cp "$PROMPT_FILE" "$INTENT_DIR/raw-prompt.md"
-  cat > "$STATE" <<'JSON'
+
+  # v9.0 LAW-INTENT-DEFAULT — known-archetype default-and-proceed.
+  # If the raw prompt matches a curated archetype (and --interactive is NOT set),
+  # pre-fill declared.* from the catalog and record an `agent-default-archetype`
+  # history entry. That entry satisfies the feature-surface confirmation guard
+  # WITHOUT an interactive round — so "build facebook" reaches READY in one pass
+  # instead of a 7-probe + 10-20-item interview. Defaults are explicit + overridable
+  # (user edits declared.*), so this is a known-product spec, not a vacuous PASS.
+  # Reconciles the standing rule "never stop mid-flow to confirm" with LAW-CL-95.
+  ARCHETYPE_FILE="$SCRIPT_DIR/archetype-defaults.json"
+  ARCH_KEY=""; ARCH_DEFAULTS=""
+  if [[ "$INTERACTIVE" -ne 1 && -f "$ARCHETYPE_FILE" ]]; then
+    RAW_LC=$(tr '[:upper:]' '[:lower:]' < "$INTENT_DIR/raw-prompt.md")
+    ARCH_KEY=$(jq -r --arg p "$RAW_LC" '
+      [ .archetypes[] | select(.match as $m | ($p | test($m))) | .key ] | (.[0] // empty)
+    ' "$ARCHETYPE_FILE" 2>/dev/null || true)
+    if [[ -n "$ARCH_KEY" ]]; then
+      ARCH_DEFAULTS=$(jq -c --arg k "$ARCH_KEY" '.archetypes[] | select(.key==$k) | .defaults' "$ARCHETYPE_FILE" 2>/dev/null || true)
+    fi
+  fi
+
+  if [[ -n "$ARCH_DEFAULTS" ]]; then
+    jq -n --argjson d "$ARCH_DEFAULTS" --arg k "$ARCH_KEY" '{
+      iter: 0,
+      confidence: 0,
+      declared: $d,
+      ambiguities: [],
+      history: [ {
+        iter: 0,
+        source: "agent-default-archetype",
+        archetype: $k,
+        note: "declared.* pre-filled from curated archetype catalog; satisfies feature-surface confirmation without an interactive round (LAW-INTENT-DEFAULT). User may override by editing declared.* or re-running with --interactive."
+      } ]
+    }' > "$STATE"
+    printf "# Intent declaration transcript\n\n- iter 0: archetype \`%s\` matched → declared.* pre-filled (default-and-proceed). User may override.\n" "$ARCH_KEY" > "$TRANSCRIPT"
+    log_step intent "archetype matched: $ARCH_KEY — pre-filled declared.* (default-and-proceed, no interview)"
+  else
+    cat > "$STATE" <<'JSON'
 {
   "iter": 0,
   "confidence": 0,
@@ -86,7 +125,8 @@ if [[ ! -f "$STATE" ]]; then
   "history": []
 }
 JSON
-  printf "# Intent declaration transcript\n\n" > "$TRANSCRIPT"
+    printf "# Intent declaration transcript\n\n" > "$TRANSCRIPT"
+  fi
 fi
 
 ITER=$(jq -r '.iter' "$STATE")
@@ -108,7 +148,10 @@ DECL_SUCCESS=$(jq -r '.declared.success_criteria | length' "$STATE")
 DECL_TIER=$(jq -r '.declared.scale_tier // empty' "$STATE")
 DECL_COST=$(jq -r '.declared.cost.monthly_usd_ceiling // empty' "$STATE")
 DECL_FS_COUNT=$(jq -r '.declared.feature_surface | length' "$STATE")
-DECL_FS_CONFIRMED=$(jq -r '[.history[] | select(.source=="user-confirm-feature-surface")] | length' "$STATE")
+# v9.0 — feature-surface confirmation is satisfied by EITHER a user confirmation
+# OR a curated archetype pre-fill (agent-default-archetype). Both are explicit,
+# recorded provenance; neither is a silent vacuous inference.
+DECL_FS_CONFIRMED=$(jq -r '[.history[] | select(.source=="user-confirm-feature-surface" or .source=="agent-default-archetype")] | length' "$STATE")
 
 # v8.7.2 — referenced-product detector. Raw prompt contains "X clone" /
 # "like X" / "alternative to X" / famous-product name → known-product threshold
@@ -182,7 +225,7 @@ jq --argjson probe "$PROBE_JSON" --argjson fs_floor "$FS_FLOOR" '
         elif $f == "feature_surface"          then ($root.declared.feature_surface          | length) < $fs_floor
         elif $f == "feature_surface.confirmation" then
                                                     (($root.declared.feature_surface | length) >= $fs_floor)
-                                                    and ([$root.history[] | select(.source=="user-confirm-feature-surface")] | length) < 1
+                                                    and ([$root.history[] | select(.source=="user-confirm-feature-surface" or .source=="agent-default-archetype")] | length) < 1
         else true
         end
     ))) as $kept

@@ -1,0 +1,44 @@
+{
+  "_doc": "v9.0 LAW-INTENT-DEFAULT — curated archetype defaults. When the raw prompt matches an archetype `match` regex (case-insensitive) and intent runs WITHOUT --interactive, declare-intent.sh pre-fills declared.* from `defaults` and records an `agent-default-archetype` history entry that satisfies the feature-surface confirmation guard WITHOUT an interactive round. Defaults are explicit + overridable (user edits declared.*), so this is not a vacuous PASS — it is a known-product spec the user can accept or change. Keep this catalog small + high-confidence; an unmatched prompt falls through to the full probe + interview. The match regex must be specific enough not to false-fire on unrelated prompts.",
+  "archetypes": [
+    {
+      "key": "facebook-clone",
+      "match": "facebook|social[ -]?network|social media (app|platform|site)|news ?feed app",
+      "defaults": {
+        "product_type": "social-network",
+        "primary_user": "general consumer maintaining a social graph — posting updates, following friends, messaging",
+        "core_flows": [
+          "register / login",
+          "create a post with text + media to the feed",
+          "friend or follow another user",
+          "comment and react on a post",
+          "send a direct message to another user"
+        ],
+        "success_criteria": [
+          "a new user can register, post, and see the post in their own feed",
+          "two users can friend each other and each sees the other's posts in their feed",
+          "a direct message sent by user A appears live for user B without a page reload"
+        ],
+        "out_of_scope": [
+          "ads / marketplace / monetization",
+          "video calling",
+          "third-party app platform / open graph API"
+        ],
+        "constraints": [],
+        "scale_tier": "mvp",
+        "cost": { "monthly_usd_ceiling": 200, "currency": "USD" },
+        "feature_surface": [
+          { "name": "auth / accounts", "must": true, "synonyms": ["register", "login", "sessions"], "rationale": "identity is the root of a social graph" },
+          { "name": "news feed", "must": true, "synonyms": ["timeline", "home feed"], "rationale": "primary surface" },
+          { "name": "posts + media", "must": true, "synonyms": ["status update", "photo upload"], "rationale": "content creation" },
+          { "name": "friend / follow graph", "must": true, "synonyms": ["friend request", "follow"], "rationale": "the social graph itself" },
+          { "name": "comments", "must": true, "synonyms": ["replies"], "rationale": "engagement" },
+          { "name": "reactions", "must": true, "synonyms": ["likes"], "rationale": "engagement" },
+          { "name": "direct messaging", "must": true, "synonyms": ["chat", "messenger", "dm"], "rationale": "realtime-class — triggers GATE-RT-PROPAGATE" },
+          { "name": "notifications", "must": true, "synonyms": ["alerts"], "rationale": "re-engagement loop" },
+          { "name": "user profiles", "must": true, "synonyms": ["profile page"], "rationale": "identity surface" }
+        ]
+      }
+    }
+  ]
+}
