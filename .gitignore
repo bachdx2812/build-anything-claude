@@ -40,3 +40,7 @@ Thumbs.db
 .idea/
 *.swp
 ~$*.docx
+
+# local work artifacts — not versioned
+examples/
+plans/
