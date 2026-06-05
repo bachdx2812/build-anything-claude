@@ -22,9 +22,9 @@ description: Stage 5 — coverage + mutation + property-based + lint + type-chec
 
 | ID | Script | Pass criteria | Threshold source |
 |----|--------|---------------|------------------|
-| GATE-10 line cov | `scripts/mechanical/coverage-check.sh` | ≥ threshold per project_type | Section C |
+| GATE-10 line cov | `scripts/mechanical/coverage-check.sh` | ≥ threshold per project_type; **v9.0** 0-instrumented/no-report ⇒ N/A on every stack (node/python/go/rust) — never 100%-of-zero (LAW-COV-EXEC) | Section C |
 | GATE-10 branch cov | same | ≥ threshold | Section C |
-| GATE-11 mutation | `scripts/mechanical/mutation-test.sh` | ≥ threshold; scope = changed files + 1-hop | Section C |
+| GATE-11 mutation | `scripts/mechanical/mutation-test.sh` | ≥ threshold; scope = changed files + 1-hop; **v9.0** tool-absent on a critical atom (scale+/realtime/`mutation_tool_required`) ⇒ FAIL not silent N/A (LAW-COV-EXEC) | Section C |
 | GATE-16 property | `scripts/mechanical/property-test-runner.sh` | every public pure function in diff has ≥ 1 property test | n/a (binary) |
 | **GATE-25-E2E (mandatory for project_type ∈ {frontend, mixed})** | `scripts/mechanical/e2e-playwright.sh` | Playwright spec files cover every declared `e2e.journeys[]`, `npx playwright test` exits 0, ≥1 passed, 0 failed, 0 vacuous-runs | binary |
 | **GATE-25-E2E-MOBILE (v8.6 — mandatory for project_type ∈ mobile-*)** | `scripts/mechanical/e2e-maestro.sh` | Maestro flows under `.maestro/` exist, `maestro test` exits 0, ≥1 passed, 0 failed, 0 vacuous-runs; `maestro.app_id` declared | binary |

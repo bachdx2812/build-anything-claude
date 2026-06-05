@@ -6,7 +6,11 @@
 #      not reach Stage 4. NOT an ERROR: reviewer decides if dispatch expected.
 #   2. PASS multi-persona when every dispatched persona wrote a status report with
 #      verdict=PASS, files_changed ⊆ that persona's allowlist subset, allowlists
-#      disjoint, and tests-status.core_flows_covered ⊇ intent.core_flows.
+#      disjoint, tests-status.core_flows_covered ⊇ intent.core_flows, AND a real
+#      machine coverage artifact (GATE-10) corroborates it (v9.0 LAW-COV-EXEC).
+#   2b. N/A_PENDING_REVIEWER when that same self-report has NO corroborating machine
+#      coverage — persona claims alone cannot certify (the FB-clone "100% on a dead
+#      backend" disease).
 #   3. FAIL multi-persona when one persona's files_changed escape its allowlist.
 #   4. FAIL multi-persona when tests-status.core_flows_covered missing entries
 #      from intent/verdict.json.core_flows.
@@ -89,6 +93,17 @@ write_status() {
 EOF
 }
 
+# v9.0 LAW-COV-EXEC — a clean multi-persona self-report only PASSes when corroborated
+# by a real machine coverage artifact (GATE-10). Helper writes that artifact so the
+# happy-path fixture certifies execution, not just self-report.
+write_machine_coverage() {
+  local atom_dir="$1" passed="${2:-true}" instrumented="${3:-120}"
+  mkdir -p "$atom_dir/gate-mechanical"
+  cat > "$atom_dir/gate-mechanical/coverage.json" <<EOF
+{ "gate": "GATE-10-line", "score": 92, "passed": $passed, "extra": { "total_lines_instrumented": $instrumented } }
+EOF
+}
+
 run_case() {
   local name="$1" atom_dir="$2" expected_verdict="$3" expected_rc="$4"
   log "case=$name expect=verdict:$expected_verdict rc:$expected_rc"
@@ -127,7 +142,7 @@ ATOM=$(mk_atom "1_no_split")
 # expected. LAW-F6: surface as N/A_PENDING_REVIEWER.
 run_case "1_no_split" "$ATOM" "N/A_PENDING_REVIEWER" "0"
 
-# ── Case 2: multi-persona happy path → PASS ─────────────────────────
+# ── Case 2: multi-persona happy path (self-report + corroborating coverage) → PASS ──
 ATOM=$(mk_atom "2_multi_ok")
 write_split "$ATOM" "multi-persona" "true" "true" "true" \
   '["backend/**","api/**"]' \
@@ -136,7 +151,21 @@ write_split "$ATOM" "multi-persona" "true" "true" "true" \
 write_status "$ATOM" "backend"  "PASS" '["backend/routes/upload.ts","api/handlers/play.ts"]'
 write_status "$ATOM" "frontend" "PASS" '["frontend/pages/upload.tsx","src/components/Player.tsx"]'
 write_status "$ATOM" "tests"    "PASS" '["e2e/upload.spec.ts","e2e/play.spec.ts"]' '["upload","play"]'
+write_machine_coverage "$ATOM" "true" "120"   # v9.0: corroborate self-report with real GATE-10 evidence
 run_case "2_multi_ok" "$ATOM" "PASS" "0"
+
+# ── Case 2b: identical self-report but NO machine coverage → N/A (LAW-COV-EXEC) ──
+# Proves the FB-clone disease is closed: clean persona claims alone cannot PASS.
+ATOM=$(mk_atom "2b_multi_uncorroborated")
+write_split "$ATOM" "multi-persona" "true" "true" "true" \
+  '["backend/**","api/**"]' \
+  '["frontend/**","src/components/**"]' \
+  '["e2e/**","tests/e2e/**"]'
+write_status "$ATOM" "backend"  "PASS" '["backend/routes/upload.ts","api/handlers/play.ts"]'
+write_status "$ATOM" "frontend" "PASS" '["frontend/pages/upload.tsx","src/components/Player.tsx"]'
+write_status "$ATOM" "tests"    "PASS" '["e2e/upload.spec.ts","e2e/play.spec.ts"]' '["upload","play"]'
+# no write_machine_coverage → uncorroborated
+run_case "2b_multi_uncorroborated" "$ATOM" "N/A_PENDING_REVIEWER" "0"
 
 # ── Case 3: backend files escape its allowlist → FAIL ───────────────
 ATOM=$(mk_atom "3_outside_allowlist")

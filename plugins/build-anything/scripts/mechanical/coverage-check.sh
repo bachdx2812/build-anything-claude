@@ -43,19 +43,54 @@ case "$STACK" in
     ;;
   python)
     require_cmd coverage "install: pip install coverage"
-    ( cd "$RUN_ROOT" && coverage run -m pytest -q && coverage json -o .coverage-tmp.json ) >/dev/null
+    # v9.0 LAW-COV-EXEC — capture failure instead of aborting; a non-produced
+    # report or 0 instrumented statements means tests did not execute → N/A,
+    # never the 100%-of-nothing vacuous PASS the node branch already guards against.
+    ( cd "$RUN_ROOT" && coverage run -m pytest -q && coverage json -o .coverage-tmp.json ) >/dev/null 2>&1 || true
+    if [[ ! -f "$RUN_ROOT/.coverage-tmp.json" ]]; then
+      log_step coverage "python coverage json not produced — N/A_PENDING_REVIEWER (pytest collected 0 tests or errored)"
+      emit_na_pending "GATE-10" "$OUT_LINE" "coverage json not produced; pytest likely collected 0 tests or errored before emit — reviewer must fix test discovery OR justify"
+      exit 0
+    fi
     LINE=$(jq -r '.totals.percent_covered' "$RUN_ROOT/.coverage-tmp.json")
+    TOTAL_LINES=$(jq -r '.totals.num_statements // 0' "$RUN_ROOT/.coverage-tmp.json")
+    if ! [[ "$LINE" =~ ^[0-9.]+$ ]] || [[ "${TOTAL_LINES:-0}" -eq 0 ]]; then
+      log_step coverage "python coverage 0 statements instrumented — N/A_PENDING_REVIEWER (tests did not execute)"
+      emit_na_pending "GATE-10" "$OUT_LINE" "python coverage has 0 instrumented statements (no tests executed); reviewer must fix test discovery OR justify"
+      exit 0
+    fi
     BRANCH="$LINE"
     ;;
   go)
     require_cmd go
-    ( cd "$RUN_ROOT" && go test -coverprofile=.coverage-tmp.out ./... ) >/dev/null
-    LINE=$(go tool cover -func="$RUN_ROOT/.coverage-tmp.out" | tail -1 | awk '{gsub("%","",$NF); print $NF}')
+    ( cd "$RUN_ROOT" && go test -coverprofile=.coverage-tmp.out ./... ) >/dev/null 2>&1 || true
+    if [[ ! -s "$RUN_ROOT/.coverage-tmp.out" ]]; then
+      log_step coverage "go produced no coverage profile — N/A_PENDING_REVIEWER (no tests or build failed)"
+      emit_na_pending "GATE-10" "$OUT_LINE" "go produced no coverage profile (no tests ran or build failed); reviewer must fix OR justify"
+      exit 0
+    fi
+    LINE=$(go tool cover -func="$RUN_ROOT/.coverage-tmp.out" 2>/dev/null | tail -1 | awk '{gsub("%","",$NF); print $NF}')
+    if ! [[ "$LINE" =~ ^[0-9.]+$ ]]; then
+      log_step coverage "go coverage not numeric (0 statements covered) — N/A_PENDING_REVIEWER"
+      emit_na_pending "GATE-10" "$OUT_LINE" "go coverage non-numeric (no statements executed); reviewer must fix OR justify"
+      exit 0
+    fi
     BRANCH="$LINE"
     ;;
   rust)
     require_cmd cargo "install: cargo install cargo-tarpaulin"
-    ( cd "$RUN_ROOT" && cargo tarpaulin --out Json --output-dir .coverage-tmp ) >/dev/null
+    ( cd "$RUN_ROOT" && cargo tarpaulin --out Json --output-dir .coverage-tmp ) >/dev/null 2>&1 || true
+    if [[ ! -f "$RUN_ROOT/.coverage-tmp/tarpaulin-report.json" ]]; then
+      log_step coverage "tarpaulin produced no report — N/A_PENDING_REVIEWER (no tests or build failed)"
+      emit_na_pending "GATE-10" "$OUT_LINE" "tarpaulin produced no report (no tests ran or build failed); reviewer must fix OR justify"
+      exit 0
+    fi
+    RUST_FILES=$(jq -r '.files | length' "$RUN_ROOT/.coverage-tmp/tarpaulin-report.json" 2>/dev/null || echo 0)
+    if [[ "${RUST_FILES:-0}" -eq 0 ]]; then
+      log_step coverage "tarpaulin measured 0 files — N/A_PENDING_REVIEWER (no tests executed)"
+      emit_na_pending "GATE-10" "$OUT_LINE" "tarpaulin measured 0 files (no tests executed); reviewer must fix OR justify"
+      exit 0
+    fi
     LINE=$(jq -r '.files | map(.coverage) | add / length' "$RUN_ROOT/.coverage-tmp/tarpaulin-report.json")
     BRANCH="$LINE"
     ;;

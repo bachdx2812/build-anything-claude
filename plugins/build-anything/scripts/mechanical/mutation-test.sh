@@ -26,6 +26,31 @@ if [[ "$SCALE_TIER" == "scale" || "$SCALE_TIER" == "hyperscale" ]]; then
 fi
 OUT="$ATOM_DIR/gate-mechanical/mutation.json"
 
+# v9.0 LAW-COV-EXEC — mutation is the vacuous-test catcher (kills tests that assert
+# nothing). On a CRITICAL atom, a MISSING mutation tool must not buy a free N/A pass:
+# that is exactly how assert-nothing tests slipped past the FB-clone build. Critical =
+# scale+ tier OR realtime-class product OR explicit config opt-in. There, tool-absent ⇒ FAIL.
+PRODUCT_TYPE=$(jq -r '.declared.product_type // empty' "$ATOM_DIR/intent/verdict.json" 2>/dev/null || echo "")
+TOOL_REQUIRED=0
+case "$SCALE_TIER" in scale|hyperscale) TOOL_REQUIRED=1 ;; esac
+case "$PRODUCT_TYPE" in *chat*|*messag*|*collab*|*social*|*realtime*|*real-time*) TOOL_REQUIRED=1 ;; esac
+MUT_REQ_CFG=$(jq -r '.gates.mechanical.mutation_tool_required // empty' "$PROJECT_ROOT/.build-anything.json" 2>/dev/null || echo "")
+[[ "$MUT_REQ_CFG" == "true" ]]  && TOOL_REQUIRED=1
+[[ "$MUT_REQ_CFG" == "false" ]] && TOOL_REQUIRED=0
+
+# emit_tool_absent <tool> <install-hint> — FAIL on critical atoms, N/A otherwise.
+emit_tool_absent() {
+  local tool="$1" hint="$2"
+  if [[ "$TOOL_REQUIRED" -eq 1 ]]; then
+    log_step mutation "$tool absent on CRITICAL atom (tier=${SCALE_TIER:-none} product=${PRODUCT_TYPE:-none}) — FAIL (LAW-COV-EXEC: vacuous-test catcher must run)"
+    emit_json "GATE-11" "0" "$THRESH" "false" "$OUT" \
+      "{\"killed\":0,\"total\":0,\"stack\":\"$STACK\",\"reason\":\"mutation-tool-absent-on-critical-atom\",\"tool\":\"$tool\",\"install_hint\":\"$hint\"}" >/dev/null
+    exit 1
+  fi
+  emit_na_pending "GATE-11" "$OUT" "$tool not installed; reviewer must install ($hint) OR justify"
+  exit 0
+}
+
 # scope to changed source files only — reads `git diff` via _common
 read_lines SCOPE < <(changed_files | grep -E '\.(ts|tsx|js|jsx|py|go|rs)$' | grep -v -E '(test|spec)' || true)
 if [[ ${#SCOPE[@]} -eq 0 ]]; then
@@ -68,9 +93,7 @@ case "$STACK" in
     elif command -v npx >/dev/null 2>&1 && ( cd "$RUN_ROOT" && npx --no-install stryker --version >/dev/null 2>&1 ); then
       STRYKER_BIN="npx --no-install stryker"
     else
-      log_step mutation "stryker not installed — N/A_PENDING_REVIEWER (LAW-15)"
-      emit_na_pending "GATE-11" "$OUT" "stryker not installed; reviewer must install (npm i -g stryker-cli @stryker-mutator/core) OR justify"
-      exit 0
+      emit_tool_absent "stryker" "npm i -g stryker-cli @stryker-mutator/core"
     fi
     # Strip RUN_ROOT prefix from scope paths so they resolve relative to stryker cwd.
     REL_SCOPE=()
@@ -111,8 +134,7 @@ case "$STACK" in
     ;;
   python)
     if ! command -v mutmut >/dev/null 2>&1; then
-      emit_na_pending "GATE-11" "$OUT" "mutmut not installed; reviewer must install (pip install mutmut) OR justify"
-      exit 0
+      emit_tool_absent "mutmut" "pip install mutmut"
     fi
     ( cd "$RUN_ROOT" && mutmut run --paths-to-mutate "$(IFS=,; echo "${SCOPE[*]}")" ) || true
     KILLED=$(mutmut results 2>/dev/null | awk '/killed/ {print $2}' || echo 0)
@@ -120,8 +142,7 @@ case "$STACK" in
     ;;
   go)
     if ! command -v gremlins >/dev/null 2>&1; then
-      emit_na_pending "GATE-11" "$OUT" "gremlins not installed; reviewer must install (go install github.com/go-gremlins/gremlins/cmd/gremlins@latest) OR justify"
-      exit 0
+      emit_tool_absent "gremlins" "go install github.com/go-gremlins/gremlins/cmd/gremlins@latest"
     fi
     ( cd "$RUN_ROOT" && gremlins unleash -o json "${SCOPE[@]}" > .gremlins-tmp.json ) || true
     KILLED=$(jq -r '[.mutants[] | select(.status=="KILLED")] | length' "$RUN_ROOT/.gremlins-tmp.json" 2>/dev/null || echo 0)
@@ -129,8 +150,7 @@ case "$STACK" in
     ;;
   rust)
     if ! command -v cargo >/dev/null 2>&1; then
-      emit_na_pending "GATE-11" "$OUT" "cargo not installed; reviewer must install rust toolchain OR justify"
-      exit 0
+      emit_tool_absent "cargo" "install rust toolchain (rustup)"
     fi
     ( cd "$RUN_ROOT" && timeout 600 cargo mutants --no-shuffle --json > .mutants-tmp.json ) || true
     KILLED=$(jq -r '[.outcomes[] | select(.outcome=="CaughtMutant")] | length' "$RUN_ROOT/.mutants-tmp.json" 2>/dev/null || echo 0)

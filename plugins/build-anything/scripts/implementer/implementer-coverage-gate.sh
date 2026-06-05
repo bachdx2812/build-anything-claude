@@ -169,17 +169,61 @@ else
   fi
 fi
 
+# ── Machine-coverage corroboration (v9.0 LAW-COV-EXEC) ────────────
+# The persona status files above are AGENT SELF-REPORT — `core_flows_covered[]`
+# and verdict:"PASS" are authored by the implementer persona itself. They prove
+# INTENT, not EXECUTION. A backend that never boots can still ship a status file
+# claiming PASS (the FB-clone "100% FE+BE on a dead backend" failure mode).
+# So when tests were dispatched against declared core_flows, this gate's PASS MUST
+# be corroborated by a machine-produced coverage artifact (GATE-10), which runs
+# earlier in the orchestrator and writes gate-mechanical/coverage.json. Absent /
+# N/A / 0-instrumented coverage ⇒ we cannot certify → N/A_PENDING_REVIEWER, never
+# a silent PASS on self-report alone.
+COV_PROBLEM=""
+REQUIRE_COV=0
+if [[ "$MODE" == "multi-persona" ]]; then
+  TS_DISPATCH_COV=$(jq -r '.concerns.tests.dispatch' "$SPLIT")
+  [[ "$TS_DISPATCH_COV" == "true" && "$CORE_FLOWS" != "[]" ]] && REQUIRE_COV=1
+fi
+if [[ "$REQUIRE_COV" -eq 1 ]]; then
+  COV10="$ATOM_DIR/gate-mechanical/coverage.json"
+  if [[ ! -f "$COV10" ]]; then
+    COV_PROBLEM="machine-coverage-absent(GATE-10 not run for this atom)"
+  else
+    COV_PASSED=$(jq -r '.passed' "$COV10" 2>/dev/null || echo "null")
+    COV_VERDICT=$(jq -r '.verdict // empty' "$COV10" 2>/dev/null || echo "")
+    COV_INSTR=$(jq -r '.extra.total_lines_instrumented // empty' "$COV10" 2>/dev/null || echo "")
+    if [[ "$COV_PASSED" != "true" ]]; then
+      COV_PROBLEM="machine-coverage-not-pass(passed=$COV_PASSED verdict=${COV_VERDICT:-none})"
+    elif [[ -n "$COV_INSTR" && "$COV_INSTR" != "null" && "$COV_INSTR" -eq 0 ]]; then
+      COV_PROBLEM="machine-coverage-vacuous(0 instrumented lines)"
+    fi
+  fi
+fi
+
 # ── Final verdict ────────────────────────────────────────────────
 VIOLATION_COUNT=$(jq 'length' <<< "$VIOLATIONS")
 DETAILS=$(jq -n --arg mode "$MODE" --argjson violations "$VIOLATIONS" --argjson core_flows "$CORE_FLOWS" \
-  '{mode: $mode, violations: $violations, core_flows_declared: $core_flows}')
+  --arg cov_problem "$COV_PROBLEM" --argjson require_cov "$REQUIRE_COV" \
+  '{mode: $mode, violations: $violations, core_flows_declared: $core_flows, machine_coverage_required: ($require_cov==1), machine_coverage_problem: (if $cov_problem=="" then null else $cov_problem end)}')
 
-if [[ "$VIOLATION_COUNT" -eq 0 ]]; then
-  log "PASS: all dispatched personas reported, no allowlist violations, core_flows covered"
-  emit "PASS" "true" "100" "Stage 4 BMAD-method implementer coverage complete" "$DETAILS"
+# Hard structural violations FAIL regardless (as before).
+if [[ "$VIOLATION_COUNT" -gt 0 ]]; then
+  log "FAIL: $VIOLATION_COUNT violation(s)"
+  emit "FAIL" "false" "100" "Stage 4 implementer coverage gate found $VIOLATION_COUNT violation(s)" "$DETAILS"
+  exit 1
+fi
+
+# No structural violations, but self-report uncorroborated by machine coverage ⇒
+# cannot certify. LAW-F6/LAW-COV-EXEC: N/A_PENDING_REVIEWER, never vacuous PASS.
+if [[ -n "$COV_PROBLEM" ]]; then
+  log "N/A: persona self-report clean but uncorroborated — $COV_PROBLEM"
+  emit "N/A_PENDING_REVIEWER" "null" "0" \
+    "Stage 4 persona status reports are clean but coverage is unproven by machine evidence ($COV_PROBLEM); self-report alone cannot certify coverage (LAW-COV-EXEC) — reviewer must confirm tests actually executed against a running backend" \
+    "$DETAILS"
   exit 0
 fi
 
-log "FAIL: $VIOLATION_COUNT violation(s)"
-emit "FAIL" "false" "100" "Stage 4 implementer coverage gate found $VIOLATION_COUNT violation(s)" "$DETAILS"
-exit 1
+log "PASS: personas reported, no allowlist violations, core_flows covered, machine coverage corroborated"
+emit "PASS" "true" "100" "Stage 4 BMAD-method implementer coverage complete (machine-coverage corroborated)" "$DETAILS"
+exit 0
